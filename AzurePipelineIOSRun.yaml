@@ -18,20 +18,20 @@ parameters:
   - name: iosDevice
     displayName: 'Simulator device name'
     type: string
-    default: 'iPhone 17 Pro'
+    default: 'iPhone 16 Pro'
   - name: iosVersion
     displayName: 'Simulator iOS version'
     type: string
-    default: '26.1'
+    default: '18.2'
   - name: xcodeVersion
     displayName: 'Xcode version to select (needs to match the iOS runtime)'
     type: string
-    default: '26.1'
+    default: '16.2'
 
 variables:
   MAESTRO_VERSION: '2.11.0'
   MAESTRO_CLI_NO_ANALYTICS: '1'
-  MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+  MAESTRO_DRIVER_STARTUP_TIMEOUT: '600000'   # 10 min (was 3 min): the hosted Mac is slow
   APP_WORK_DIR: '$(Agent.TempDirectory)/ios-app'
   FAILURE_DIR: '$(Build.ArtifactStagingDirectory)/failure-artifacts'
 
@@ -95,7 +95,7 @@ jobs:
       echo "Using simulator: $SIM_UDID ($IOS_DEVICE, iOS $IOS_VERSION)"
       xcrun simctl boot "$SIM_UDID" || true
       echo "##vso[task.setvariable variable=SIM_UDID]$SIM_UDID"
-    displayName: Start simulator boot (iPhone 17 Pro / iOS 26.1)
+    displayName: Start simulator boot
     timeoutInMinutes: 10
     env:
       IOS_DEVICE: ${{ parameters.iosDevice }}
@@ -124,25 +124,26 @@ jobs:
         INSTALLED="$(maestro --version 2>&1 | tail -n 1 | tr -d '[:space:]')"
       fi
 
-      if [ "$INSTALLED" = "$(MAESTRO_VERSION)" ]; then
+      if [ "$INSTALLED" = "$MAESTRO_VERSION" ]; then
         echo "Maestro $INSTALLED restored from cache, skipping install"
       else
-        echo "Installing Maestro $(MAESTRO_VERSION) (found: '${INSTALLED:-none}')"
-        export MAESTRO_VERSION="$(MAESTRO_VERSION)"
+        echo "Installing Maestro $MAESTRO_VERSION (found: '${INSTALLED:-none}')"
         curl -fsSL "https://get.maestro.mobile.dev" | bash
         INSTALLED="$(maestro --version 2>&1 | tail -n 1 | tr -d '[:space:]')"
       fi
 
       echo "Maestro version: $INSTALLED"
-      if [ "$INSTALLED" != "$(MAESTRO_VERSION)" ]; then
-        echo "##vso[task.logissue type=error]Expected Maestro $(MAESTRO_VERSION) but got $INSTALLED"
+      if [ "$INSTALLED" != "$MAESTRO_VERSION" ]; then
+        echo "##vso[task.logissue type=error]Expected Maestro $MAESTRO_VERSION but got $INSTALLED"
         exit 1
       fi
 
       # Remove old results that may have been restored from the cache
       rm -rf "$HOME/.maestro/tests"
       echo "##vso[task.prependpath]$HOME/.maestro/bin"
-    displayName: Install Maestro $(MAESTRO_VERSION)
+    displayName: Install Maestro
+    env:
+      MAESTRO_VERSION: $(MAESTRO_VERSION)
 
   # ---- Download and extract the simulator .app
   - script: |
@@ -193,6 +194,29 @@ jobs:
       SIM_UDID: $(SIM_UDID)
       APP_PATH: $(APP_PATH)
 
+  # ---- Warm up the Maestro iOS driver once so the real run finds it ready
+  - script: |
+      set -uo pipefail
+      export PATH="$HOME/.maestro/bin:$PATH"
+      mkdir -p "$(Agent.TempDirectory)/warmup"
+      printf 'appId: com.apple.mobilesafari\n---\n- launchApp\n' > "$(Agent.TempDirectory)/warmup/warmup.yaml"
+
+      for i in 1 2; do
+        echo "Driver warm-up attempt $i"
+        if maestro --device "$SIM_UDID" test "$(Agent.TempDirectory)/warmup/warmup.yaml"; then
+          echo "Driver is ready"
+          exit 0
+        fi
+        xcrun simctl terminate "$SIM_UDID" dev.mobile.maestro-driver-iosUITests.xctrunner || true
+        sleep 15
+      done
+      echo "##vso[task.logissue type=error]Maestro iOS driver did not start after 2 attempts"
+      exit 1
+    displayName: Warm up Maestro iOS driver
+    timeoutInMinutes: 25
+    env:
+      SIM_UDID: $(SIM_UDID)
+
   # ---- Run the tests (retries default to 0 so a failing test is not run three times)
   - pwsh: |
       ./.maestro/suite/run.ps1 `
@@ -216,15 +240,16 @@ jobs:
   # ---- Collect everything useful when the run fails
   - script: |
       set -uo pipefail
-      OUT="$(FAILURE_DIR)"
-      mkdir -p "$OUT/reports" "$OUT/screenshots" "$OUT/maestro-logs" "$OUT/crash-logs" "$OUT/simulator"
+      OUT="$FAILURE_DIR"
+      mkdir -p "$OUT/reports" "$OUT/screenshots" "$OUT/maestro-logs" "$OUT/maestro-driver-logs" "$OUT/crash-logs" "$OUT/simulator"
 
       # Maestro reports (JUnit xml, attempt-N/artifacts with screenshots, maestro.log, commands json)
       cp -R "$(Build.SourcesDirectory)/.maestro/suite/reports/ios/." "$OUT/reports/" 2>/dev/null || true
       cp -R "$(Build.SourcesDirectory)/.maestro/suite/screenshots/." "$OUT/screenshots/" 2>/dev/null || true
 
-      # Maestro's own run folders
+      # Maestro's own run folders and the iOS driver (XCTest runner) logs
       cp -R "$HOME/.maestro/tests/." "$OUT/maestro-logs/" 2>/dev/null || true
+      cp -R "$HOME/Library/Logs/maestro/." "$OUT/maestro-driver-logs/" 2>/dev/null || true
 
       # Crash reports written by macOS for the app or simulator processes (last 2 hours)
       find "$HOME/Library/Logs/DiagnosticReports" -type f \( -name "*.ips" -o -name "*.crash" \) -mmin -120 \
@@ -235,8 +260,8 @@ jobs:
       if [[ "$SIM_UDID" =~ ^[0-9A-Fa-f-]{36}$ ]]; then
         # What the simulator looks like right now
         xcrun simctl io "$SIM_UDID" screenshot "$OUT/simulator/final-screen.png" 2>&1 || true
-        # Simulator system log
-        xcrun simctl spawn "$SIM_UDID" log show --last 20m --style compact > "$OUT/simulator/system.log" 2>&1 || true
+        # Simulator system log (short window keeps this step fast)
+        xcrun simctl spawn "$SIM_UDID" log show --last 5m --style compact > "$OUT/simulator/system.log" 2>&1 || true
         # CoreSimulator logs for this device
         cp -R "$HOME/Library/Logs/CoreSimulator/$SIM_UDID/." "$OUT/simulator/coresimulator/" 2>/dev/null || true
       else
@@ -250,6 +275,7 @@ jobs:
     condition: failed()
     env:
       SIM_UDID: $(SIM_UDID)
+      FAILURE_DIR: $(FAILURE_DIR)
 
   - task: PublishPipelineArtifact@1
     displayName: Upload failure artifacts
