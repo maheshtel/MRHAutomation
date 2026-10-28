@@ -1,0 +1,40 @@
+appId: com.mrh.mobilestore
+---
+# Signs in as TEST_EMAIL / TEST_PASSWORD (loaded from .env.test by run.ps1).
+#
+# Precondition: app is running as a guest (subflows/app/launch.yaml).
+# Ends on:      the Account tab, signed in (account-logged-in-content visible).
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Account
+      SCREEN_ID: account-guest-content
+
+- tapOn:
+    id: account-guest-signin
+- extendedWaitUntil:
+    visible:
+      id: login-screen
+    timeout: 10000
+
+- tapOn:
+    id: email-input
+- inputText: ${TEST_EMAIL}
+
+- tapOn:
+    id: password-input
+- inputText: ${TEST_PASSWORD}
+
+# Submit with the keyboard's Done key: the password field's onSubmitEditing
+# runs the same handler as the Sign In button. This replaces hideKeyboard +
+# tapOn sign-in-button, because hideKeyboard is very slow on Android (35s
+# measured) and the keyboard can cover the button on small screens.
+- pressKey: Enter
+
+# Sign-in is a network round trip; allow for a slow sandbox API.
+- extendedWaitUntil:
+    visible:
+      id: account-logged-in-content
+    timeout: 30000
+    label: Wait for signed-in Account screen

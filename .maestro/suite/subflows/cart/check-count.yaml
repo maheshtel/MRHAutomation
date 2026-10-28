@@ -1,0 +1,60 @@
+appId: com.mrh.mobilestore
+---
+# Checks the item count shown on the Cart tab, waiting for it to update.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/cart/check-count.yaml   # relative to the caller
+#       env:
+#         COUNT: '1'     # '0' = no count (empty cart) | '1' | '2', '3', ... | 'any' = any count
+#
+# The count is part of the Cart tab's accessibility label from DSTabBar.tsx:
+#   empty cart -> "Cart tab"
+#   1 item     -> "Cart tab, 1 item"
+#   N items    -> "Cart tab, N items"
+# This file is the only place that knows that format; if the app changes it,
+# change it here.
+#
+# The count updates only after the cart API answers, so this waits (up to 20s)
+# instead of asserting once. Each branch below is picked by a JS check on
+# COUNT, which costs no screen lookups.
+
+- runFlow:
+    when:
+      true: ${COUNT == '0'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "Cart tab"
+          timeout: 20000
+          label: Cart tab has no item count
+
+- runFlow:
+    when:
+      true: ${COUNT == '1'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "Cart tab, 1 item"
+          timeout: 20000
+          label: Cart tab shows 1 item
+
+- runFlow:
+    when:
+      true: ${COUNT == 'any'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: 'Cart tab, \d+ items?'
+          timeout: 20000
+          label: Cart tab shows an item count
+
+- runFlow:
+    when:
+      true: ${COUNT != '0' && COUNT != '1' && COUNT != 'any'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "Cart tab, ${COUNT} items"
+          timeout: 20000
+          label: Cart tab shows the expected item count

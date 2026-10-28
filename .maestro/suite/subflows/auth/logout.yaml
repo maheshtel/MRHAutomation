@@ -1,0 +1,31 @@
+appId: com.mrh.mobilestore
+---
+# Signs out from the Account tab.
+#
+# Precondition: signed in.
+# Ends on:      the Account tab in guest state (account-guest-signin visible).
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Account
+      SCREEN_ID: account-logged-in-content
+
+# Sign Out sits at the bottom of the Account screen, below the menu sections,
+# where the floating tab bar covers it. centerElement scrolls it clear of the
+# tab bar; otherwise the tap lands on the tab bar and nothing happens.
+- scrollUntilVisible:
+    element:
+      id: account-menu-sign-out
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+
+- tapOn:
+    id: account-menu-sign-out
+
+- extendedWaitUntil:
+    visible:
+      id: account-guest-signin
+    timeout: 20000
+    label: Wait for guest Account screen

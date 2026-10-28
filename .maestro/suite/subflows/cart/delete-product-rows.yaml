@@ -1,0 +1,79 @@
+appId: com.mrh.mobilestore
+---
+# Opens the Cart tab and deletes every row of one product (any option, price or
+# quantity). Rows of other products are left alone.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/cart/delete-product-rows.yaml
+#       env:
+#         NAME_RE: ${output.productNameRe}   # regex-escaped product name
+#
+# Ends on: the Cart tab, with no row of that product left (fails otherwise).
+#
+# Row labels look like "Mango Butter Organic, quantity 1, price $38.25, ..."; the
+# ", " after the name keeps a longer name ("Mango Butter Organic Large") from
+# matching.
+#
+# The Cart tab keeps its scroll position, so this scrolls to the top first and
+# then scans down once. Each match is scrolled to the middle of the screen
+# before deleting: delete-row taps a fixed point inside the row, which misses on
+# a row half hidden under the header or the tab bar.
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Cart
+      SCREEN_ID: cart-screen
+- extendedWaitUntil:
+    visible:
+      id: 'cart-empty|cart-(item|gift-certificate)-[0-9a-f-]+'
+    timeout: 20000
+    label: Wait for cart contents to load
+
+- runFlow:
+    when:
+      visible:
+        id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+    label: Cart has items - delete this product's rows
+    commands:
+      - runFlow:
+          file: ../common/scroll-to-top.yaml
+          env:
+            SWIPES: '6'
+      # Each pass scrolls down from where the last one stopped (rows above have
+      # already been checked); the loop ends on the first pass that reaches the
+      # bottom without a match.
+      - evalScript: ${output.productRowFound = true}
+      - repeat:
+          while:
+            true: ${output.productRowFound}
+          times: 20
+          commands:
+            - evalScript: ${output.productRowFound = false}
+            - scrollUntilVisible:
+                element:
+                  id: 'cart-item-[0-9a-f-]+'
+                  text: "${NAME_RE}, .*"
+                direction: DOWN
+                centerElement: true
+                timeout: 30000
+                optional: true
+                label: Look for a row of the product
+            - runFlow:
+                when:
+                  visible:
+                    id: 'cart-item-[0-9a-f-]+'
+                    text: "${NAME_RE}, .*"
+                label: Delete the product's row
+                commands:
+                  - evalScript: ${output.productRowFound = true}
+                  - runFlow:
+                      file: delete-row.yaml
+                      env:
+                        ROW: "${NAME_RE}, .*"
+                  - waitForAnimationToEnd:
+                      timeout: 5000
+      - assertTrue:
+          condition: ${!output.productRowFound}
+          label: No row of the product is left in the cart

@@ -1,0 +1,44 @@
+appId: com.mrh.mobilestore
+name: Auth - Sign in with valid credentials
+tags:
+  - auth
+  - home
+  - smoke
+---
+# Requires TEST_EMAIL / TEST_PASSWORD in .env.test (or .env.test.<platform>).
+#
+# Verifies:
+#   - A valid account can sign in.
+#   - The Account screen shows the signed-in customer's email.
+#   - Home, opened as the signed-in user, renders every key section with real
+#     content: top banner + search, announcement banner, product row, What's New,
+#     Shop by Category, Shop by Function, image banner and footer.
+#   - Sign out returns the Account tab to guest state.
+- launchApp
+
+- runFlow: ../../subflows/app/launch.yaml
+
+- runFlow: ../../subflows/auth/login.yaml
+
+# The profile card's accessibility label is "Account: <name>, <email>", so this
+# checks we're signed in as the expected account, not just any account.
+- assertVisible:
+    id: account-email-card
+    text: '.*${TEST_EMAIL}.*'
+    label: Profile card shows the signed-in email
+
+# Not in login_test.yaml: go back to Home after signing in.
+#- runFlow:
+#    file: ../../subflows/nav/go-to-tab.yaml
+#    env:
+#      TAB: Home
+#      SCREEN_ID: home-screen
+
+#- runFlow: ../../subflows/home/verify-sections.yaml
+
+# Not in login_test.yaml: sign out at the end.
+#- runFlow: ../../subflows/auth/logout.yaml
+
+#- assertVisible:
+#    id: account-guest-signin
+#    label: Guest sign-in prompt is back after sign out

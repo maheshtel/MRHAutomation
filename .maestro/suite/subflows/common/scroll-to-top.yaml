@@ -1,0 +1,26 @@
+appId: com.mrh.mobilestore
+---
+# Scrolls the current vertical list back to the top.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/common/scroll-to-top.yaml
+#       env:
+#         SWIPES: '6'     # enough for the longest list on that screen
+#
+# Lists like My Lists and the Cart keep their scroll position and have no fixed
+# element at the top to scroll to, so we swipe down a fixed number of times;
+# extra swipes at the top do nothing.
+#
+# The swipes run along the left edge (x = 3%), outside the cards and rows
+# (which start at x = 44px), so a swipe can never register as a tap that opens
+# a card.
+
+- repeat:
+    times: ${SWIPES}
+    commands:
+      - swipe:
+          start: "3%,30%"
+          end: "3%,85%"
+          duration: 300
+          label: Scroll up

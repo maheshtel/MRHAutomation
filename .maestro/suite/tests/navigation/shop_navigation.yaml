@@ -1,0 +1,104 @@
+appId: com.mrh.mobilestore
+name: Shop - verify Category and Function names are displayed
+tags:
+  - navigation
+  - shop
+  - smoke
+---
+# Expected names live in data/test-data.js (output.data.shop).
+#
+# Each name is matched on its row in the active tab's list, and each row must
+# sit below the previous one, so the check covers both the names and their order.
+
+- runScript: ../../data/test-data.js
+- runFlow: ../../subflows/app/launch.yaml
+
+- runFlow:
+    file: ../../subflows/nav/go-to-tab.yaml
+    env:
+      TAB: Shop
+      SCREEN_ID: shop-by-tabs
+
+# ── Category ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: shop-by-tabs-tab-Category
+    label: Open the CATEGORY tab
+- extendedWaitUntil:
+    visible:
+      id: shop-category-tree-category
+    timeout: 15000
+
+- assertVisible:
+    id: 'shop-category-tree-category-.*-(toggle|leaf)'
+    text: ${output.data.shop.categories[0]}
+    label: Category 1 of 5 is shown
+- assertVisible:
+    id: 'shop-category-tree-category-.*-(toggle|leaf)'
+    text: ${output.data.shop.categories[1]}
+    below:
+      id: 'shop-category-tree-category-.*-(toggle|leaf)'
+      text: ${output.data.shop.categories[0]}
+    label: Category 2 of 5 is shown, below category 1
+- assertVisible:
+    id: 'shop-category-tree-category-.*-(toggle|leaf)'
+    text: ${output.data.shop.categories[2]}
+    below:
+      id: 'shop-category-tree-category-.*-(toggle|leaf)'
+      text: ${output.data.shop.categories[1]}
+    label: Category 3 of 5 is shown, below category 2
+- assertVisible:
+    id: 'shop-category-tree-category-.*-(toggle|leaf)'
+    text: ${output.data.shop.categories[3]}
+    below:
+      id: 'shop-category-tree-category-.*-(toggle|leaf)'
+      text: ${output.data.shop.categories[2]}
+    label: Category 4 of 5 is shown, below category 3
+- assertVisible:
+    id: 'shop-category-tree-category-.*-(toggle|leaf)'
+    text: ${output.data.shop.categories[4]}
+    below:
+      id: 'shop-category-tree-category-.*-(toggle|leaf)'
+      text: ${output.data.shop.categories[3]}
+    label: Category 5 of 5 is shown, below category 4
+
+# ── Function ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: shop-by-tabs-tab-Function
+    label: Open the FUNCTION tab
+- extendedWaitUntil:
+    visible:
+      id: shop-category-tree-function
+    timeout: 15000
+
+- assertVisible:
+    id: 'shop-category-tree-function-.*-(toggle|leaf)'
+    text: ${output.data.shop.functions[0]}
+    label: Function 1 of 5 is shown
+- assertVisible:
+    id: 'shop-category-tree-function-.*-(toggle|leaf)'
+    text: ${output.data.shop.functions[1]}
+    below:
+      id: 'shop-category-tree-function-.*-(toggle|leaf)'
+      text: ${output.data.shop.functions[0]}
+    label: Function 2 of 5 is shown, below function 1
+- assertVisible:
+    id: 'shop-category-tree-function-.*-(toggle|leaf)'
+    text: ${output.data.shop.functions[2]}
+    below:
+      id: 'shop-category-tree-function-.*-(toggle|leaf)'
+      text: ${output.data.shop.functions[1]}
+    label: Function 3 of 5 is shown, below function 2
+- assertVisible:
+    id: 'shop-category-tree-function-.*-(toggle|leaf)'
+    text: ${output.data.shop.functions[3]}
+    below:
+      id: 'shop-category-tree-function-.*-(toggle|leaf)'
+      text: ${output.data.shop.functions[2]}
+    label: Function 4 of 5 is shown, below function 3
+- assertVisible:
+    id: 'shop-category-tree-function-.*-(toggle|leaf)'
+    text: ${output.data.shop.functions[4]}
+    below:
+      id: 'shop-category-tree-function-.*-(toggle|leaf)'
+      text: ${output.data.shop.functions[3]}
+    label: Function 5 of 5 is shown, below function 4

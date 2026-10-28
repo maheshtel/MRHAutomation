@@ -1,0 +1,36 @@
+appId: com.mrh.mobilestore
+---
+# Empties the signed-in user's cart and ends on the Cart tab showing cart-empty.
+#
+# The cart is stored server-side per account, so clearing the app's data does
+# NOT empty it. Tests that assert on cart contents call this before they start
+# (so leftovers from an earlier run can't break them) and again at the end.
+#
+# Each cart row's delete button has testID cart-item-{id}-delete
+# (gift certificates: cart-gift-certificate-{id}-delete). There is no
+# confirmation dialog. While a delete is in flight the rows are disabled, so a
+# repeated tap on the same row is harmless.
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Cart
+      SCREEN_ID: cart-screen
+
+- repeat:
+    while:
+      visible:
+        id: 'cart-(item|gift-certificate)-\d+-delete'
+    times: 20
+    commands:
+      - tapOn:
+          id: 'cart-(item|gift-certificate)-\d+-delete'
+          index: 0
+          waitToSettleTimeoutMs: 3000
+          label: Delete first cart row
+
+- extendedWaitUntil:
+    visible:
+      id: cart-empty
+    timeout: 20000
+    label: Wait for empty cart

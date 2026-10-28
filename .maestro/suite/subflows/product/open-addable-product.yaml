@@ -1,0 +1,164 @@
+appId: com.mrh.mobilestore
+---
+# Opens the first product from output.data.products.candidates that can be
+# added to the cart, so one removed or out-of-stock product doesn't fail the test.
+#
+# Usage:
+#   - runScript: ../../data/test-data.js                            # first, in the test
+#   - runFlow: ../../subflows/product/open-addable-product.yaml   # relative to the caller
+#   - runFlow: ../../subflows/product/add-to-cart.yaml
+#
+# Precondition: on Home.
+# Ends on:      that product's detail page, with Add to Cart enabled.
+# Sets:         output.productName   - the candidate that was picked
+#               output.productNameRe - the same, regex-escaped for selectors
+#
+# Each candidate is searched for from the Home search bar, the way a user would:
+#   - Not in the results: the result row is "<exact name>, <price>", so a
+#     similarly named product doesn't count. Search stays open; the text is
+#     erased and the next candidate typed in.
+#   - In the results but Add to Cart stays disabled (out of stock, or an option
+#     must be picked from a dropdown): Back on the product page returns to the
+#     Search screen with the old text still in it, so it's erased and the next
+#     candidate typed in the same way. If the product has chip options, the
+#     first selectable chip is picked before giving up on it.
+# If no candidate works, the test fails with one clear message pointing at the
+# test data instead of at the cart.
+
+- evalScript: ${output.pickIndex = 0}
+- evalScript: ${output.pickFound = false}
+# true while the search field is open with the previous candidate's text in it.
+- evalScript: ${output.searchOpen = false}
+
+- repeat:
+    while:
+      true: ${!output.pickFound && output.pickIndex < output.data.products.candidates.length}
+    times: 10
+    commands:
+      - evalScript: ${output.productName = output.data.products.candidates[output.pickIndex]}
+      - evalScript: ${output.pickIndex = output.pickIndex + 1}
+      - runScript:
+          file: ../../scripts/regex-escape.js
+          env:
+            VALUE: ${output.productName}
+            OUT: productNameRe
+
+      # ── Search for it ──────────────────────────────────────────────────────
+      # From Home: open the search bar. Still in search: clear the old text.
+      - runFlow:
+          when:
+            true: ${!output.searchOpen}
+          label: Open search from Home
+          commands:
+            # The search bar is part of Home's loaded content: home-screen is
+            # shown first with a "Loading home" placeholder (slow on a cold start).
+            - extendedWaitUntil:
+                visible:
+                  id: 'home-top-banner-\d+-search-bar-input'
+                timeout: 30000
+                label: Wait for the Home search bar
+            - tapOn:
+                id: 'home-top-banner-\d+-search-bar-input'
+                label: Open search
+      - runFlow:
+          when:
+            true: ${output.searchOpen}
+          label: Previous candidate not found - clear the search text
+          commands:
+            - eraseText: 100
+      - inputText: ${output.productName}
+      - evalScript: ${output.searchOpen = true}
+      - extendedWaitUntil:
+          visible:
+            text: "${output.productNameRe}, .*"
+          timeout: 10000
+          optional: true
+          label: "Look for ${output.productName} in the results"
+
+      # ── Found: open it and check Add to Cart ───────────────────────────────
+      - runFlow:
+          when:
+            visible:
+              text: "${output.productNameRe}, .*"
+          label: "Open ${output.productName} and check it can be added"
+          commands:
+            - tapOn:
+                text: "${output.productNameRe}, .*"
+                label: "Tap ${output.productName} in the results"
+            - evalScript: ${output.searchOpen = false}
+            - extendedWaitUntil:
+                visible:
+                  id: product-detail-screen
+                timeout: 20000
+                label: Wait for the product page
+            - scrollUntilVisible:
+                element:
+                  id: product-detail-actions-submit
+                direction: DOWN
+                timeout: 15000
+                optional: true
+                label: Scroll to Add to Cart
+
+            # Disabled with chip options shown: pick the first selectable chip.
+            - runFlow:
+                when:
+                  visible:
+                    id: product-detail-actions-submit
+                    enabled: false
+                label: Add to Cart disabled - try picking an option
+                commands:
+                  - tapOn:
+                      id: 'product-detail-actions-option-.*'
+                      enabled: true
+                      index: 0
+                      optional: true
+                      label: Select first available option
+
+            - runFlow:
+                when:
+                  visible:
+                    id: product-detail-actions-submit
+                    enabled: true
+                label: "${output.productName} can be added"
+                commands:
+                  - evalScript: ${output.pickFound = true}
+
+            # Can't be added: Back returns to the Search screen with the old text
+            # still typed in (tab bar hidden), so the next candidate is typed
+            # there like the not-found case. Only if Back lands anywhere else
+            # does the next search start again from Home.
+            - runFlow:
+                when:
+                  true: ${!output.pickFound}
+                label: "${output.productName} can't be added - back to search"
+                commands:
+                  - tapOn:
+                      id: product-detail-header-back-button
+                      label: Tap Back on the product page
+                  - extendedWaitUntil:
+                      visible:
+                        id: search-bar-input
+                      timeout: 10000
+                      optional: true
+                      label: Wait for the Search screen
+                  - runFlow:
+                      when:
+                        visible:
+                          id: search-bar-input
+                      commands:
+                        - evalScript: ${output.searchOpen = true}
+                  - runFlow:
+                      when:
+                        notVisible:
+                          id: search-bar-input
+                      label: Not back on Search - go Home instead
+                      file: ../nav/go-to-tab.yaml
+                      env:
+                        TAB: Home
+                        SCREEN_ID: home-screen
+
+- assertTrue:
+    condition: ${output.pickFound}
+    label: >-
+      A product from data/test-data.js products.candidates can be added to the
+      cart (all were missing or unavailable - update the list)

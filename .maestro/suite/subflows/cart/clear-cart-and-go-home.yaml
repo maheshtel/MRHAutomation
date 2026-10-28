@@ -1,0 +1,54 @@
+appId: com.mrh.mobilestore
+---
+# Opens the Cart tab, empties the cart if it has anything in it, and returns
+# to Home.
+#
+#   Cart has items -> delete every row, then go Home.
+#   Cart is empty  -> go straight back Home.
+#
+# Ends on: Home (id: home-screen).
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Cart
+      SCREEN_ID: cart-screen
+
+# The cart loads from the server, so wait until it shows either the empty state
+# or at least one row before deciding which branch to take.
+- extendedWaitUntil:
+    visible:
+      id: 'cart-empty|cart-(item|gift-certificate)-[0-9a-f-]+'
+    timeout: 20000
+    label: Wait for cart contents to load
+
+# Row ids are cart-item-{uuid} / cart-gift-certificate-{uuid}. The pattern only
+# matches the row itself: its child ids (-name, -stepper...) contain non-hex
+# letters.
+- runFlow:
+    when:
+      visible:
+        id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+    label: Cart has items - clear it
+    commands:
+      - repeat:
+          while:
+            visible:
+              id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+          times: 20
+          commands:
+            - runFlow:
+                file: delete-row.yaml
+                env:
+                  ROW: '.*'
+      - extendedWaitUntil:
+          visible:
+            id: cart-empty
+          timeout: 20000
+          label: Wait for empty cart
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Home
+      SCREEN_ID: home-screen

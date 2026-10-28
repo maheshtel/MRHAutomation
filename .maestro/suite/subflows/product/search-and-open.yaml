@@ -1,0 +1,28 @@
+appId: com.mrh.mobilestore
+---
+# Searches for a product from the Home search bar and opens it.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/product/search-and-open.yaml
+#       env:
+#         PRODUCT: Mango Butter Organic   # exact product name
+#
+# Precondition: on Home.
+# Ends on:      the product detail page (product-detail-screen).
+#
+# The search result row has no testID; it's matched by its accessibility label,
+# "<name>, <price or price range>".
+
+- tapOn:
+    id: 'home-top-banner-\d+-search-bar-input'
+    label: Open search
+- inputText: ${PRODUCT}
+- tapOn:
+    text: "${PRODUCT}, .*"
+    label: "Tap ${PRODUCT} in the results"
+- extendedWaitUntil:
+    visible:
+      id: product-detail-screen
+    timeout: 20000
+    label: Wait for the product page

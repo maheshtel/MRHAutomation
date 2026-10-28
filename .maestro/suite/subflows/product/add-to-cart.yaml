@@ -1,0 +1,38 @@
+appId: com.mrh.mobilestore
+---
+# Adds the product that's open to the cart, with its default option and
+# quantity, and waits until the cart confirms it.
+#
+# Usage:
+#   - runFlow: ../../subflows/product/add-to-cart.yaml   # relative to the caller
+#
+# Precondition: on the product detail page (product-detail-screen).
+# Ends on:      the product detail page, with a count on the Cart tab.
+#
+# The Add to Cart button (product-detail-actions-submit) is disabled for
+# out-of-stock products and for products whose option must be picked from a
+# dropdown first; the "enabled" check below fails with a clear label then.
+
+- swipe:
+    start: 50%, 75%
+    end: 50%, 40%
+    duration: 500
+- scrollUntilVisible:
+    element:
+      id: product-detail-actions-submit
+    direction: DOWN
+    timeout: 15000
+    label: Scroll to Add to Cart
+- assertVisible:
+    id: product-detail-actions-submit
+    enabled: true
+    label: Add to Cart is enabled (fails for dropdown-option or out-of-stock products)
+- tapOn:
+    id: product-detail-actions-submit
+    label: Tap Add to Cart
+
+# The Cart tab gains a count once the cart API confirms the add.
+- runFlow:
+    file: ../cart/check-count.yaml
+    env:
+      COUNT: any

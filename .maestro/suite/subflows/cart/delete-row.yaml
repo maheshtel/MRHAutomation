@@ -1,0 +1,30 @@
+appId: com.mrh.mobilestore
+---
+# Deletes one cart row by tapping its trash icon.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/cart/delete-row.yaml
+#       env:
+#         ROW: '.*'     # regex for the row's accessibility label; '.*' = first row
+#
+# Row labels look like "Mango Butter Organic, quantity 1, price $38.25, total $38.25".
+# There is no confirmation dialog. Callers wait for the result they expect
+# (e.g. cart-empty, or the row being gone).
+#
+# KNOWN WORKAROUND (the only point: tap in the suite; keep it here):
+# the installed APK doesn't expose the trash button in the view hierarchy, so
+# the row is tapped where the trash icon sits (95% across, 48% down). A row that
+# is taller than usual (e.g. with an "unavailable" message) can make this miss.
+# The app source already gives the button testID cart-item-{id}-delete; once
+# the APK is rebuilt from it, replace this with:
+#   - tapOn:
+#       id: 'cart-(item|gift-certificate)-[0-9a-f-]+-delete'
+
+- tapOn:
+    id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+    text: ${ROW}
+    index: 0
+    point: "95%,48%"
+    waitToSettleTimeoutMs: 3000
+    label: Tap the row's trash icon

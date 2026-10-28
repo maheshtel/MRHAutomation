@@ -1,0 +1,24 @@
+appId: com.mrh.mobilestore
+---
+# Starts the app as a signed-out guest and waits for Home.
+# Every test starts here, so no test depends on what the previous one left behind.
+#
+# LAUNCH_MODE picks how the app is started (run.ps1 -Launch sets it):
+#   standalone  (default) the installed com.mrh.mobilestore APK. See launch-standalone.yaml.
+#   expo-go     the JS bundle runs inside Expo Go. See launch-expo-go.yaml.
+#
+# KEEP_SESSION: 'true' (optional, pass with runFlow env) keeps a user left signed
+# in by an earlier run, instead of signing them out. Expo Go only: the standalone
+# launch clears app data, so it always starts as a guest.
+#
+# `typeof` keeps the default working when the flow is run without run.ps1 and
+# LAUNCH_MODE isn't set at all.
+- runFlow:
+    when:
+      true: ${typeof LAUNCH_MODE === 'undefined' || LAUNCH_MODE != 'expo-go'}
+    file: launch-standalone.yaml
+
+- runFlow:
+    when:
+      true: ${typeof LAUNCH_MODE !== 'undefined' && LAUNCH_MODE == 'expo-go'}
+    file: launch-expo-go.yaml

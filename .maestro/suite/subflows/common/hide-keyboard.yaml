@@ -1,0 +1,27 @@
+appId: com.mrh.mobilestore
+---
+# Closes the on-screen keyboard if it's open, so it can't cover buttons or the
+# tab bar. Safe to call when no keyboard is showing.
+#
+# Usage:
+#   - runFlow: ../../subflows/common/hide-keyboard.yaml   # relative to the caller
+#
+# Android: Back closes the keyboard at once (hideKeyboard takes ~35s there).
+#   It only runs when Gboard is actually showing: Back without a keyboard would
+#   close a sheet or leave the screen.
+# iOS: no Back key, so hideKeyboard.
+
+- runFlow:
+    when:
+      platform: Android
+      visible:
+        id: 'com.google.android.inputmethod.latin:id/.*'
+    label: Close the keyboard
+    commands:
+      - pressKey: Back
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - hideKeyboard

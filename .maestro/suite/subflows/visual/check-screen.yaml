@@ -1,0 +1,36 @@
+appId: com.mrh.mobilestore
+---
+# Compares the current screen with a saved baseline image.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/visual/check-screen.yaml   # relative to the calling file
+#       env:
+#         SHOT: home-guest                               # file name, no extension
+#
+# Baselines live in screenshots/baseline/<platform>/<SHOT>.png. run.ps1 sets
+# BASELINE_DIR to the right platform folder as an absolute path, so the path
+# doesn't depend on which folder or file was passed to `maestro test`.
+#
+# Recording: `run.ps1 -UpdateBaselines` sets UPDATE_BASELINES=true. The screen
+# is then saved as the new baseline and not compared. Review the images before
+# committing them.
+#
+# Wait for the screen to settle before calling this (extendedWaitUntil on the
+# element that proves it loaded). A half-loaded screen gives a flaky diff.
+- runFlow:
+    when:
+      true: ${UPDATE_BASELINES == 'true'}
+    commands:
+      - takeScreenshot:
+          path: ${BASELINE_DIR}/${SHOT}
+          label: "Record baseline ${SHOT}"
+
+- runFlow:
+    when:
+      true: ${UPDATE_BASELINES != 'true'}
+    commands:
+      - assertScreenshot:
+          path: ${BASELINE_DIR}/${SHOT}
+          thresholdPercentage: 98
+          label: "Screen matches baseline ${SHOT}"

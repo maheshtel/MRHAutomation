@@ -1,0 +1,58 @@
+appId: com.mrh.mobilestore
+---
+# Taps a bottom tab and waits for the destination screen.
+#
+# Usage:
+#   - runFlow:
+#       file: ../nav/go-to-tab.yaml      # path is relative to the calling file
+#       env:
+#         TAB: Account                   # Home | Shop | Cart | Account
+#         SCREEN_ID: account-guest-content
+#
+# TAB is matched against the tab's accessibility label from DSTabBar.tsx
+# ("Home tab", "Cart tab, 2 items", ...). The tabs have no testID in the app,
+# so this label is the most stable locator; it works on Android and iOS, and
+# the trailing ".*" covers the Cart tab's item count.
+# SCREEN_ID is the id (or id regex) of an element that proves the screen loaded.
+#
+# Fast path: tap once and wait briefly. Almost every call ends here.
+# Slow path (only when the screen didn't open): close a keyboard that may be
+# covering the tab bar (e.g. left open by an earlier test; it survives the app
+# restart), then tap again with retries. The first tap is optional because a
+# full keyboard hides the tab bar completely, and the slow path must still run.
+# Checking for the keyboard only here keeps the common case fast: a "visible"
+# check on an absent element can take several seconds.
+
+# retryTapIfNoChange: false - when we're already on this tab, the tap changes
+# nothing, and Maestro's default would keep waiting and re-tapping (measured:
+# 50s). A tap that really didn't land is handled by the slow path below.
+- tapOn:
+    text: "${TAB} tab.*"
+    optional: true
+    retryTapIfNoChange: false
+    label: "Tap the ${TAB} tab"
+- extendedWaitUntil:
+    visible:
+      id: ${SCREEN_ID}
+    timeout: 5000
+    optional: true
+    label: "Wait for ${SCREEN_ID}"
+
+- runFlow:
+    when:
+      notVisible:
+        id: ${SCREEN_ID}
+    label: "Tab didn't open: clear the tab bar and tap again"
+    commands:
+      - runFlow: ../common/hide-keyboard.yaml
+      - retry:
+          maxRetries: 2
+          commands:
+            - tapOn:
+                text: "${TAB} tab.*"
+                label: "Tap the ${TAB} tab again"
+            - extendedWaitUntil:
+                visible:
+                  id: ${SCREEN_ID}
+                timeout: 10000
+                label: "Wait for ${SCREEN_ID}"

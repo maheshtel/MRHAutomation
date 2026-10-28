@@ -1,0 +1,76 @@
+appId: com.mrh.mobilestore
+---
+# Starts the app inside Expo Go as a signed-out guest and waits for Home.
+# Called by launch.yaml when LAUNCH_MODE is expo-go (the default); tests call launch.yaml.
+#
+# Needs a running dev server (`npx expo start`) that the device can reach.
+#
+# How the project is opened:
+#   EXPO_URL set      openLink straight to the dev server, e.g. exp://192.168.1.20:8081.
+#                     Deterministic, so prefer it in .env.test.
+#   EXPO_URL not set  tap the project in Expo Go's home list by its name,
+#                     EXPO_PROJECT (default "Mountain Rose").
+#
+# No clearState here: it would wipe Expo Go itself, including its project list.
+# The app's own storage therefore survives between tests, so a user left signed
+# in by an earlier (failed) test is signed out at the end of this flow instead.
+- launchApp:
+    appId: host.exp.exponent
+    stopApp: true
+    permissions:
+      notifications: deny
+
+- runFlow:
+    when:
+      true: ${typeof EXPO_URL !== 'undefined' && EXPO_URL != ''}
+    commands:
+      - openLink: ${EXPO_URL}
+
+- runFlow:
+    when:
+      true: ${typeof EXPO_URL === 'undefined' || EXPO_URL == ''}
+    commands:
+      - evalScript: "${output.expoProject = (typeof EXPO_PROJECT !== 'undefined' && EXPO_PROJECT) || 'Mountain Rose'}"
+      - extendedWaitUntil:
+          visible:
+            text: ${output.expoProject}
+          timeout: 15000
+          label: Wait for the project in Expo Go's list
+      - tapOn:
+          text: ${output.expoProject}
+          index: 0
+          label: Open the project in Expo Go
+
+# The JS bundle is served over the network by the dev server; the first load
+# after a code change can take a while.
+- extendedWaitUntil:
+    visible:
+      id: home-screen
+    timeout: 90000
+    label: Wait for Home after opening the project in Expo Go
+
+# Reset to guest. Accept either Account state, then sign out if needed.
+# Skipped when the caller passes KEEP_SESSION: 'true' (e.g. logout_success.yaml,
+# which needs to see a user left signed in).
+- runFlow:
+    when:
+      true: ${typeof KEEP_SESSION === 'undefined' || KEEP_SESSION != 'true'}
+    commands:
+      - tapOn:
+          text: "Account tab.*"
+          label: Open Account to check sign-in state
+      - extendedWaitUntil:
+          visible:
+            id: 'account-(guest|logged-in)-content'
+          timeout: 10000
+      - runFlow:
+          when:
+            visible:
+              id: account-logged-in-content
+          file: ../auth/logout.yaml
+
+#- runFlow:
+#    file: ../nav/go-to-tab.yaml
+#    env:
+#      TAB: Home
+#      SCREEN_ID: home-screen

@@ -1,0 +1,32 @@
+appId: com.mrh.mobilestore
+---
+# Opens the first product card on Home and adds it to the cart from the
+# product detail page.
+#
+# Precondition: on Home.
+# Ends on:      the product detail page, with the Cart tab's label showing a
+#               count ("Cart tab, N item(s)").
+#
+# Home product cards have no add-to-cart button of their own on this branch.
+# Adding always goes through the product detail page.
+#
+# Limitation: the "first product" depends on what the Home content serves.
+# This handles a product with no options or one chip-style option group. A
+# dropdown option or an out-of-stock product ("Notify Me") fails at the
+# "Add to Cart is enabled" check in add-to-cart.yaml with a clear label.
+
+- runFlow: open-first-home-product.yaml
+
+# Pick the first selectable option chip if this product has chip options.
+- runFlow:
+    when:
+      visible:
+        id: 'product-detail-actions-options-.*'
+    commands:
+      - tapOn:
+          id: 'product-detail-actions-option-.*'
+          enabled: true
+          index: 0
+          label: Select first available option
+
+- runFlow: add-to-cart.yaml

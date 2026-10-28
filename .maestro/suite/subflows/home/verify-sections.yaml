@@ -1,0 +1,94 @@
+appId: com.mrh.mobilestore
+---
+# Checks that every key Home section has rendered with real content, scrolling
+# from the top of Home down to the brand footer.
+#
+# Precondition: on Home, scrolled to the top (e.g. right after go-to-tab Home).
+# Ends on:      Home, scrolled to the footer.
+#
+# Home is built from CMS sections, and each section's testID ends in its position
+# in the CMS list (home-products-3, home-whats-new-4, ...). Selectors use \d+ so
+# a section moving up or down the list doesn't break them. They are checked in
+# the current CMS order, though: if marketing reorders Home, reorder the steps.
+#
+# Each section is checked for its content, not its header, because while data
+# loads the header can render above a skeleton. Recently Viewed and Purchase
+# Again depend on the account's history, so they're not checked here.
+
+- extendedWaitUntil:
+    visible:
+      id: 'home-top-banner-\d+'
+    timeout: 20000
+    label: Top banner is shown
+- assertVisible:
+    id: 'home-top-banner-\d+-search-bar-input'
+    label: Search bar is shown in the top banner
+
+- scrollUntilVisible:
+    element:
+      id: 'home-announcement-banner-\d+-\d+-title'
+    direction: DOWN
+    timeout: 10000
+    label: Announcement banner is shown
+
+- scrollUntilVisible:
+    element:
+      id: 'home-product-title-\d+'
+    direction: DOWN
+    timeout: 10000
+    label: Product section header is shown
+- extendedWaitUntil:
+    visible:
+      id: 'home-product-card-\d+'
+    timeout: 20000
+    label: Product section shows product cards (not a loading skeleton)
+
+- scrollUntilVisible:
+    element:
+      id: 'home-whats-new-\d+-card-.+'
+    direction: DOWN
+    timeout: 15000
+    label: What's New carousel shows a card
+
+- scrollUntilVisible:
+    element:
+      id: 'home-category-title-\d+'
+    direction: DOWN
+    timeout: 15000
+    label: Shop by Category header is shown
+- extendedWaitUntil:
+    visible:
+      id: 'home-category-\d+'
+    timeout: 15000
+    label: Shop by Category shows category cards
+
+- scrollUntilVisible:
+    element:
+      id: 'home-subcategory-title-\d+'
+    direction: DOWN
+    timeout: 15000
+    label: Shop by Function header is shown
+- extendedWaitUntil:
+    visible:
+      id: 'home-subcategory-\d+'
+    timeout: 15000
+    label: Shop by Function shows category cards
+
+- scrollUntilVisible:
+    element:
+      id: 'home-image-banner-\d+'
+    direction: DOWN
+    timeout: 20000
+    label: Image banner is shown
+
+- scrollUntilVisible:
+    element:
+      id: home-brand-footer
+    direction: DOWN
+    timeout: 20000
+    label: Brand footer is shown (Home rendered to the end)
+
+- assertVisible:
+    text: "Home tab"
+    selected: true
+    label: Home tab is selected

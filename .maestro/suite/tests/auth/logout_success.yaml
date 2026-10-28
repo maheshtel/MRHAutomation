@@ -1,0 +1,46 @@
+appId: com.mrh.mobilestore
+name: Auth - Sign out returns the app to guest state
+tags:
+  - auth
+  - smoke
+---
+# Requires TEST_EMAIL / TEST_PASSWORD / TEST_NAME in .env.test (or .env.test.<platform>).
+#
+# Verifies:
+#   - The signed-in Account screen shows the user's name (TEST_NAME).
+#   - Sign out returns the Account tab to the guest view, and the name is gone.
+#
+# Works from either state: if the app is already signed in it goes straight to
+# sign out; if not, it signs in first.
+
+# KEEP_SESSION keeps a user left signed in, so the "already signed in" case is
+# tested too (Expo Go only; the standalone launch always starts as a guest).
+- runFlow:
+    file: ../../subflows/app/launch.yaml
+    env:
+      KEEP_SESSION: 'true'
+
+- runFlow:
+    file: ../../subflows/nav/go-to-tab.yaml
+    env:
+      TAB: Account
+      SCREEN_ID: 'account-(guest|logged-in)-content'
+
+# Not signed in: sign in first. The edit icon only exists in the signed-in view.
+- runFlow:
+    when:
+      notVisible:
+        id: account-edit-button
+    file: ../../subflows/auth/login.yaml
+
+- assertVisible:
+    id: account-name
+    text: ${TEST_NAME}
+    label: Signed-in Account screen shows the user's name
+
+- runFlow: ../../subflows/auth/logout.yaml
+
+- assertNotVisible:
+    id: account-name
+    text: ${TEST_NAME}
+    label: The user's name is no longer shown

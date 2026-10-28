@@ -1,0 +1,27 @@
+appId: com.mrh.mobilestore
+---
+# Cold-starts the installed app as a signed-out guest and waits for Home.
+# Called by launch.yaml when LAUNCH_MODE=standalone; tests call launch.yaml.
+#
+# Android + iOS:
+#   clearState    wipes app data on both platforms.
+#   clearKeychain is iOS-only (ignored on Android). It's required there because
+#                 the auth token lives in the keychain and survives clearState.
+#   notifications are granted up front, so the "Allow Mountain Rose to send you
+#                 notifications?" prompt never appears and covers the UI. (Not
+#                 "deny": on Android 13+ a denial set this way isn't final, so
+#                 the app still shows the prompt.)
+#
+# Real OnePlus/Oppo/Realme phones: turn on Developer options > "Disable
+# permission monitoring", or clearState and the permission setting are blocked.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    permissions:
+      notifications: allow
+
+- extendedWaitUntil:
+    visible:
+      id: home-screen
+    timeout: 30000
+    label: Wait for Home after cold start

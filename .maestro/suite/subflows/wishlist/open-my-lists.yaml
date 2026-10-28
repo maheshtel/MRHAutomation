@@ -1,0 +1,42 @@
+appId: com.mrh.mobilestore
+---
+# Opens Account > My Lists and ends on the lists screen (new-list-button).
+#
+# Precondition: signed in.
+#
+# The Account tab keeps its own screen stack, so tapping it can land on the
+# Account menu, on My Lists, or inside a wishlist. go-to-tab waits until one of
+# those three has loaded, and only then do we decide where we are (deciding
+# straight after the tap can see a half-drawn screen and pick the wrong branch).
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Account
+      SCREEN_ID: 'account-logged-in-content|new-list-button|wishlist-detail-header'
+
+# Inside a wishlist -> back to My Lists.
+- runFlow:
+    when:
+      visible:
+        id: wishlist-detail-header-back-button
+    commands:
+      - tapOn:
+          id: wishlist-detail-header-back-button
+          label: Leave the open wishlist
+
+# On the Account menu -> open My Lists.
+- runFlow:
+    when:
+      visible:
+        id: account-menu-my-lists
+    commands:
+      - tapOn:
+          id: account-menu-my-lists
+          label: Open My Lists
+
+- extendedWaitUntil:
+    visible:
+      id: new-list-button
+    timeout: 15000
+    label: Wait for My Lists

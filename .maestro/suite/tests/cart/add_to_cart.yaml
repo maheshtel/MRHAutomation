@@ -1,0 +1,48 @@
+appId: com.mrh.mobilestore
+name: Cart - Add a product to the cart and remove it
+tags:
+  - cart
+  - smoke
+---
+# Verifies:
+#   - Adding a product from its page shows "1 item" on the Cart tab.
+#   - Removing it empties the cart and clears the tab's count.
+#
+# Product: first usable one from output.data.products.candidates (data/test-data.js).
+
+# ── Setup ────────────────────────────────────────────────────────────────────
+- runScript: ../../data/test-data.js
+- runFlow: ../../subflows/app/launch.yaml
+- runFlow: ../../subflows/cart/clear-cart-and-go-home.yaml
+
+# ── Add the product ──────────────────────────────────────────────────────────
+# First product from the candidates list that can be added (skips removed or
+# out-of-stock ones); its name is in output.productName / output.productNameRe.
+- runFlow: ../../subflows/product/open-addable-product.yaml
+- runFlow: ../../subflows/product/add-to-cart.yaml
+- runFlow:
+    file: ../../subflows/cart/check-count.yaml
+    env:
+      COUNT: '1'
+
+# ── Remove it ────────────────────────────────────────────────────────────────
+- runFlow:
+    file: ../../subflows/nav/go-to-tab.yaml
+    env:
+      TAB: Cart
+      SCREEN_ID: cart-screen
+- runFlow:
+    file: ../../subflows/cart/delete-row.yaml
+    env:
+      ROW: "${output.productNameRe}, .*"
+
+# ── Assert ───────────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: cart-empty
+    timeout: 20000
+    label: Cart is empty
+- runFlow:
+    file: ../../subflows/cart/check-count.yaml
+    env:
+      COUNT: '0'

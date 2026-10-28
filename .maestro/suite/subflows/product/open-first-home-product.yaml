@@ -1,0 +1,28 @@
+appId: com.mrh.mobilestore
+---
+# Opens the first product card on Home.
+#
+# Usage:
+#   - runFlow: ../../subflows/product/open-first-home-product.yaml   # relative to the caller
+#
+# Precondition: on Home.
+# Ends on:      that product's detail page (product-detail-screen).
+#
+# Which product this is depends on what the Home content (CMS) shows that day.
+# Tests that need a specific product use search-and-open.yaml instead.
+
+- scrollUntilVisible:
+    element:
+      id: 'home-product-card-\d+'
+    direction: DOWN
+    timeout: 30000
+    label: Scroll to the first Home product card
+- tapOn:
+    id: 'home-product-card-\d+'
+    index: 0
+    label: Open the first Home product
+- extendedWaitUntil:
+    visible:
+      id: product-detail-screen
+    timeout: 20000
+    label: Wait for the product page

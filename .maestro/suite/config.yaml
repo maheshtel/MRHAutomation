@@ -1,0 +1,7 @@
+# Maestro workspace config for the new suite.
+# Picked up automatically by `maestro test .maestro/suite` (run.ps1 also passes it explicitly).
+#
+# Only files under tests/ are collected as tests. subflows/ and data/ are helpers
+# and must never run on their own, so they are deliberately left out of this glob.
+flows:
+  - 'tests/**'

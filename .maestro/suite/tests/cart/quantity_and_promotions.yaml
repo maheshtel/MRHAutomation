@@ -1,0 +1,110 @@
+appId: com.mrh.mobilestore
+name: Cart - Change quantity with + and -, and reject an invalid coupon
+tags:
+  - cart
+  - promotions
+  - smoke
+---
+# Verifies:
+#   - + raises the cart row's quantity by 1 (1 -> 2), - lowers it back (2 -> 1).
+#   - Applying an invalid coupon shows the invalid-coupon error.
+#
+# Data: output.data.products.candidates and output.data.coupons (data/test-data.js).
+
+# ── Setup ────────────────────────────────────────────────────────────────────
+- runScript: ../../data/test-data.js
+- runFlow: ../../subflows/app/launch.yaml
+# First product from the candidates list that can be added (skips removed or
+# out-of-stock ones); its name is in output.productName / output.productNameRe.
+- runFlow: ../../subflows/product/open-addable-product.yaml
+
+# Add to cart (its default option, quantity 1).
+- runFlow: ../../subflows/product/add-to-cart.yaml
+
+# Open the cart (add-to-cart.yaml has already waited for the add to be confirmed).
+- runFlow:
+    file: ../../subflows/nav/go-to-tab.yaml
+    env:
+      TAB: Cart
+      SCREEN_ID: cart-screen
+- extendedWaitUntil:
+    visible:
+      id: 'cart-item-[0-9a-f-]+-stepper-input'
+    timeout: 20000
+    label: Wait for the cart row
+
+# Capture the starting quantity.
+- copyTextFrom:
+    id: 'cart-item-[0-9a-f-]+-stepper-input'
+    label: Capture quantity
+- evalScript: ${output.qtyBefore = parseInt(maestro.copiedText)}
+
+# ── Quantity: + then - ───────────────────────────────────────────────────────
+# + : quantity goes up by 1, to 2. The wait covers the cart API round-trip.
+- tapOn:
+    id: 'cart-item-[0-9a-f-]+-stepper-inc'
+    label: Tap + to increase quantity
+- extendedWaitUntil:
+    visible:
+      id: 'cart-item-[0-9a-f-]+-stepper-input'
+      text: ${String(output.qtyBefore + 1)}
+    timeout: 15000
+    label: Wait for quantity to update
+- copyTextFrom:
+    id: 'cart-item-[0-9a-f-]+-stepper-input'
+- evalScript: ${output.qtyAfterInc = parseInt(maestro.copiedText)}
+- assertTrue:
+    condition: ${output.qtyAfterInc === output.qtyBefore + 1 && output.qtyAfterInc === 2}
+    label: Quantity increased by 1 to 2
+
+# - : quantity goes back down by 1, to 1.
+- tapOn:
+    id: 'cart-item-[0-9a-f-]+-stepper-dec'
+    label: Tap - to decrease quantity
+- extendedWaitUntil:
+    visible:
+      id: 'cart-item-[0-9a-f-]+-stepper-input'
+      text: ${String(output.qtyAfterInc - 1)}
+    timeout: 15000
+    label: Wait for quantity to update
+- copyTextFrom:
+    id: 'cart-item-[0-9a-f-]+-stepper-input'
+- evalScript: ${output.qtyAfterDec = parseInt(maestro.copiedText)}
+- assertTrue:
+    condition: ${output.qtyAfterDec === output.qtyAfterInc - 1 && output.qtyAfterDec === 1}
+    label: Quantity decreased by 1 to 1
+
+# ── Invalid coupon: applying it shows an error under the coupon field ───────
+# The coupon card starts collapsed (header + chevron only); expand it first.
+- scrollUntilVisible:
+    element:
+      id: cart-coupon-toggle
+    direction: DOWN
+    centerElement: true
+    label: Scroll to the coupon card
+- tapOn:
+    id: cart-coupon-toggle
+    label: Expand the coupon card
+- extendedWaitUntil:
+    visible:
+      id: cart-coupon-input-input
+    timeout: 5000
+    label: Wait for the coupon code field
+- assertNotVisible:
+    id: cart-coupon-input-error
+    label: No coupon error before applying
+- tapOn:
+    id: cart-coupon-input-input
+    label: Tap coupon code field
+- inputText: ${output.data.coupons.invalid}
+# Close the keyboard so it can't cover Apply.
+#- runFlow: ../../subflows/common/hide-keyboard.yaml
+- tapOn:
+    id: cart-coupon-input-apply
+    label: Tap Apply
+- extendedWaitUntil:
+    visible:
+      id: cart-coupon-input-error
+      text: ${output.data.coupons.invalidMessage}
+    timeout: 15000
+    label: Invalid coupon error is displayed

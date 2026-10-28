@@ -1,0 +1,240 @@
+appId: com.mrh.mobilestore
+name: Wishlist - Create a list, add a product, and move it to the cart
+tags:
+  - wishlist
+  - smoke
+---
+# Requires TEST_EMAIL / TEST_PASSWORD in .env.test (wishlists need an account).
+#
+# Verifies:
+#   - A new wishlist can be created from My Lists.
+#   - A product saved with the heart button shows up in that wishlist.
+#   - Quick Add from the wishlist puts the same product (name and price) in the cart.
+#
+# Re-runnable: every list named output.data.wishlist.name (data/test-data.js)
+# left over from earlier runs is deleted before the new one is created. Before
+# Quick Add, every cart row of the chosen product is deleted (other products in
+# the account's cart are left alone), so the row Quick Add creates can't be
+# confused with one that was already there; that row is removed at the end.
+
+# ── Setup ────────────────────────────────────────────────────────────────────
+- runScript: ../../data/test-data.js
+- runFlow: ../../subflows/app/launch.yaml
+- runFlow: ../../subflows/auth/login.yaml
+
+# ── Create the wishlist ──────────────────────────────────────────────────────
+- runFlow: ../../subflows/wishlist/open-my-lists.yaml
+
+# Delete every leftover list with the same name first. My Lists opens at the
+# top; each pass scrolls down from where the last one stopped (lists above have
+# already been checked), so the whole list is scanned top to bottom once. The
+# loop ends on the first pass that reaches the bottom without a match.
+- evalScript: ${output.leftoverFound = true}
+- repeat:
+    while:
+      true: ${output.leftoverFound}
+    times: 20
+    commands:
+      - evalScript: ${output.leftoverFound = false}
+      - scrollUntilVisible:
+          element:
+            id: 'wishlist-card-\d+'
+            text: "${output.data.wishlist.name}, .*"
+          direction: DOWN
+          timeout: 15000
+          optional: true
+          label: Look for a leftover test wishlist
+      - runFlow:
+          when:
+            visible:
+              id: 'wishlist-card-\d+'
+              text: "${output.data.wishlist.name}, .*"
+          label: Delete the leftover test wishlist
+          commands:
+            - evalScript: ${output.leftoverFound = true}
+            - swipe:
+                start: 50%, 70%
+                end: 50%, 55%
+                duration: 400
+            - tapOn:
+                id: 'wishlist-card-\d+-delete'
+                text: "Delete ${output.data.wishlist.name} list"
+            - extendedWaitUntil:
+                visible:
+                  id: wishlist-delete-sheet-confirm
+                timeout: 5000
+            - tapOn:
+                id: wishlist-delete-sheet-confirm
+            # Wait on the sheet, not the card: another same-named list may
+            # still be on screen.
+            - extendedWaitUntil:
+                notVisible:
+                  id: wishlist-delete-sheet
+                timeout: 15000
+
+- tapOn:
+    id: new-list-button
+    label: Tap + New List
+- tapOn:
+    id: wishlist-form-sheet-input
+- inputText: ${output.data.wishlist.name}
+# The keyboard covers the Create List button.
+- runFlow: ../../subflows/common/hide-keyboard.yaml
+- tapOn:
+    id: wishlist-form-sheet-submit
+    label: Tap Create List
+- extendedWaitUntil:
+    notVisible:
+      id: wishlist-form-sheet
+    timeout: 15000
+    label: Wait for the create sheet to close
+
+# A new list is added at the top. The leftover scan left us at the bottom, so
+# scroll up until it shows (stopping there, rather than swiping past the top,
+# which would pull-to-refresh the lists).
+- scrollUntilVisible:
+    element:
+      id: 'wishlist-card-\d+'
+      text: "${output.data.wishlist.name}, 0 items"
+    direction: UP
+    timeout: 15000
+    label: New list is shown with 0 items
+
+# ── Open a product and capture its price ─────────────────────────────────────
+# Same product search as the cart test: the first addable product from
+# output.data.products.candidates (data/test-data.js). Its name is in
+# output.productName / output.productNameRe.
+- runFlow:
+    file: ../../subflows/nav/go-to-tab.yaml
+    env:
+      TAB: Home
+      SCREEN_ID: home-screen
+- runFlow: ../../subflows/product/open-addable-product.yaml
+
+- copyTextFrom:
+    id: product-detail-actions-price
+    label: Capture product price (selected option)
+- evalScript: ${output.productPrice = maestro.copiedText}
+# Regex-escaped copy for matching inside accessibility labels ("$12.75" must
+# match a literal "$" and "."). See scripts/regex-escape.js.
+- runScript:
+    file: ../../scripts/regex-escape.js
+    env:
+      VALUE: ${output.productPrice}
+      OUT: priceRe
+- assertTrue:
+    condition: ${typeof output.priceRe === 'string'}
+    label: Captured product price is ready for matching
+
+# ── Add it to the wishlist (heart / MY LISTS below Add to Cart) ─────────────
+# Centered, not just on screen: the floating tab bar covers the bottom of the
+# page, and a heart sitting under it gets the tap meant for it (opening a tab).
+- scrollUntilVisible:
+    element:
+      id: product-detail-actions-wishlist-button
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    id: product-detail-actions-wishlist-button
+    label: Tap the wishlist (heart) button
+- extendedWaitUntil:
+    visible:
+      id: add-to-wishlist-modal
+    timeout: 10000
+- tapOn:
+    id: 'add-to-wishlist-modal-item-\d+'
+    text: ${output.data.wishlist.name}
+    label: Select the test wishlist
+- tapOn:
+    id: add-to-wishlist-modal-add-button
+    label: Save to the selected list(s)
+- extendedWaitUntil:
+    notVisible:
+      id: add-to-wishlist-modal
+    timeout: 15000
+
+# ── Remove the product from the cart ─────────────────────────────────────────
+# Any row of this product already in the account's cart (from earlier runs or
+# manual use) is deleted, so the row Quick Add creates below is the only one.
+- runFlow:
+    file: ../../subflows/cart/delete-product-rows.yaml
+    env:
+      NAME_RE: ${output.productNameRe}
+
+# ── Check the product is in the wishlist ─────────────────────────────────────
+- runFlow: ../../subflows/wishlist/open-my-lists.yaml
+- scrollUntilVisible:
+    element:
+      id: 'wishlist-card-\d+'
+      text: "${output.data.wishlist.name}, 1 item"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+    label: Bring the test wishlist clear of the floating tab bar
+- tapOn:
+    id: 'wishlist-card-\d+'
+    text: "${output.data.wishlist.name}, 1 item"
+    label: Open the test wishlist (1 item)
+- extendedWaitUntil:
+    visible:
+      id: wishlist-detail-header-title
+      text: ${output.data.wishlist.name}
+    timeout: 15000
+- assertVisible:
+    id: 'wishlist-product-\d+'
+    text: "${output.productNameRe}, .*"
+    label: Wishlist contains the captured product
+
+# ── Move it to the cart ──────────────────────────────────────────────────────
+- tapOn:
+    id: 'wishlist-product-\d+-cart'
+    text: "Add ${output.productNameRe} to cart"
+    label: Tap the product's cart button
+- extendedWaitUntil:
+    visible:
+      id: wishlist-quick-add-sheet
+    timeout: 10000
+- tapOn:
+    id: wishlist-quick-add-sheet-form-submit
+    label: Tap Add to Cart in Quick Add
+- extendedWaitUntil:
+    notVisible:
+      id: wishlist-quick-add-sheet
+    timeout: 15000
+
+# ── Check the same product is in the cart ────────────────────────────────────
+# The product's old rows were deleted above, so its only row is the one Quick
+# Add just created: captured price (Quick Add uses the default option), qty 1.
+- runFlow:
+    file: ../../subflows/nav/go-to-tab.yaml
+    env:
+      TAB: Cart
+      SCREEN_ID: cart-screen
+- extendedWaitUntil:
+    visible:
+      id: 'cart-item-[0-9a-f-]+'
+    timeout: 20000
+    label: Wait for cart rows to load
+
+# The Cart tab keeps its scroll position, so scroll back to the top first,
+# then search from top to bottom.
+- runFlow:
+    file: ../../subflows/common/scroll-to-top.yaml
+    env:
+      SWIPES: '6'
+- scrollUntilVisible:
+    element:
+      id: 'cart-item-[0-9a-f-]+'
+      text: "${output.productNameRe}, quantity 1, price ${output.priceRe}, .*"
+    direction: DOWN
+    timeout: 30000
+    label: Cart has the product at the captured price, quantity 1
+
+# ── Cleanup ──────────────────────────────────────────────────────────────────
+# Remove the row this test added; the rest of the account's cart is untouched.
+# (The wishlist itself is kept; it's replaced at the next run.)
+- runFlow:
+    file: ../../subflows/cart/delete-product-rows.yaml
+    env:
+      NAME_RE: ${output.productNameRe}
