@@ -1,0 +1,162 @@
+# Maestro iOS tests - Azure DevOps, Microsoft-hosted macOS agent, manual trigger only.
+trigger: none
+pr: none
+
+parameters:
+  - name: appZipUrl
+    displayName: 'iOS simulator app (.app zip) download URL'
+    type: string
+    default: 'https://autoteststoragemahesh.blob.core.windows.net/maheshcontainer/MountainRose.app.zip'
+  - name: testPath
+    displayName: 'Test file or folder (relative to .maestro/suite, empty = whole suite)'
+    type: string
+    default: 'tests/auth'
+  - name: retries
+    displayName: 'Retries per failed test'
+    type: number
+    default: 2
+  - name: iosDevice
+    displayName: 'Simulator device name (falls back to newest available iPhone)'
+    type: string
+    default: 'iPhone 16'
+
+variables:
+  MAESTRO_VERSION: '2.11.0'
+  MAESTRO_CLI_NO_ANALYTICS: '1'
+  MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+  APP_WORK_DIR: '$(Agent.TempDirectory)/ios-app'
+
+jobs:
+- job: maestro_ios
+  displayName: Maestro - iOS
+  timeoutInMinutes: 60
+  pool:
+    vmImage: macOS-15
+  steps:
+  - checkout: self
+
+  - script: |
+      set -eu
+      sw_vers
+      echo "CPU architecture: $(uname -m)"
+      xcodebuild -version
+      xcrun simctl list runtimes
+    displayName: Show macOS agent info
+
+  - task: JavaToolInstaller@0
+    displayName: Use Java 17
+    inputs:
+      versionSpec: '17'
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalled
+
+  - script: |
+      set -euo pipefail
+      export MAESTRO_VERSION="$(MAESTRO_VERSION)"
+      curl -fsSL "https://get.maestro.mobile.dev" | bash
+      echo "##vso[task.prependpath]$HOME/.maestro/bin"
+      export PATH="$HOME/.maestro/bin:$PATH"
+      maestro --version
+      if ! maestro --version | grep -q "$(MAESTRO_VERSION)"; then
+        echo "##vso[task.logissue type=error]Expected Maestro $(MAESTRO_VERSION)"
+        exit 1
+      fi
+    displayName: Install Maestro $(MAESTRO_VERSION)
+
+  # ---- Download and extract the simulator .app
+  - script: |
+      set -euo pipefail
+      rm -rf "$(APP_WORK_DIR)" && mkdir -p "$(APP_WORK_DIR)"
+
+      curl -fL --retry 3 --retry-delay 5 -o "$(APP_WORK_DIR)/app.zip" "$APP_ZIP_URL"
+      ls -lh "$(APP_WORK_DIR)/app.zip"
+
+      # A real zip starts with "PK". Anything else is usually an error page (private blob / expired SAS).
+      if ! head -c 2 "$(APP_WORK_DIR)/app.zip" | grep -q PK; then
+        echo "##vso[task.logissue type=error]Downloaded file is not a zip (check URL / blob access / SAS expiry)"
+        head -c 300 "$(APP_WORK_DIR)/app.zip"
+        exit 1
+      fi
+
+      # ditto keeps symlinks and permissions inside the .app
+      ditto -x -k "$(APP_WORK_DIR)/app.zip" "$(APP_WORK_DIR)/unzipped"
+
+      APP_PATH="$(find "$(APP_WORK_DIR)/unzipped" -maxdepth 4 -name "*.app" -type d -not -path "*/__MACOSX/*" | head -n 1)"
+      if [ -z "$APP_PATH" ]; then
+        echo "##vso[task.logissue type=error]No .app folder found in the zip"
+        find "$(APP_WORK_DIR)/unzipped" -maxdepth 4
+        exit 1
+      fi
+
+      echo "App: $APP_PATH"
+      echo "Bundle ID: $(plutil -extract CFBundleIdentifier raw "$APP_PATH/Info.plist")"
+      echo "Executable archs: $(lipo -archs "$APP_PATH/$(plutil -extract CFBundleExecutable raw "$APP_PATH/Info.plist")" 2>/dev/null || echo unknown)"
+      echo "##vso[task.setvariable variable=APP_PATH]$APP_PATH"
+
+      # Folders the publish steps expect, so they never fail on a missing path
+      mkdir -p "$(Build.SourcesDirectory)/.maestro/suite/reports/ios"
+      mkdir -p "$(Build.SourcesDirectory)/.maestro/suite/screenshots"
+    displayName: Download and extract app
+    env:
+      APP_ZIP_URL: ${{ parameters.appZipUrl }}
+
+  # ---- Pick, boot simulator and install the app
+  - script: |
+      set -euo pipefail
+      xcrun simctl shutdown all || true
+
+      SIM_UDID="$(xcrun simctl list -j devices available | jq -r --arg n "$IOS_DEVICE" '
+        [ .devices | to_entries | sort_by(.key)[]
+          | select(.key | test("SimRuntime.iOS"))
+          | .value[] ]
+        | ((map(select(.name == $n)) | last)
+           // (map(select(.name | startswith("iPhone"))) | last))
+        | .udid // empty')"
+
+      if [ -z "$SIM_UDID" ]; then
+        echo "##vso[task.logissue type=error]No available iPhone simulator found"
+        xcrun simctl list devices available
+        exit 1
+      fi
+      echo "Using simulator: $SIM_UDID"
+
+      xcrun simctl boot "$SIM_UDID" || true
+      xcrun simctl bootstatus "$SIM_UDID" -b
+
+      # Let the simulator settle, then install
+      sleep 10
+      xcrun simctl install "$SIM_UDID" "$APP_PATH"
+      echo "App installed"
+
+      echo "##vso[task.setvariable variable=SIM_UDID]$SIM_UDID"
+    displayName: Boot simulator and install app
+    timeoutInMinutes: 20
+    env:
+      IOS_DEVICE: ${{ parameters.iosDevice }}
+      APP_PATH: $(APP_PATH)
+
+  # Same runner as Android, pointed at the iOS simulator. The app is already installed above.
+  - pwsh: |
+      ./.maestro/suite/run.ps1 `
+        -Platform ios `
+        -Device "$(SIM_UDID)" `
+        -Retries ${{ parameters.retries }} `
+        -Path "${{ parameters.testPath }}"
+      exit $LASTEXITCODE
+    displayName: Run Maestro tests
+
+  - task: PublishTestResults@2
+    displayName: Publish test results
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      searchFolder: '$(Build.SourcesDirectory)/.maestro/suite/reports/ios'
+      testResultsFiles: '*/report.xml'
+      testRunTitle: 'Maestro iOS'
+
+  - task: PublishPipelineArtifact@1
+    displayName: Upload failure screenshots
+    condition: always()
+    inputs:
+      targetPath: '$(Build.SourcesDirectory)/.maestro/suite/screenshots'
+      artifact: maestro-ios-screenshots-$(System.JobAttempt)
