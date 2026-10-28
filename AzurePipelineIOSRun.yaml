@@ -14,7 +14,7 @@ parameters:
   - name: retries
     displayName: 'Retries per failed test'
     type: number
-    default: 2
+    default: 0
   - name: iosDevice
     displayName: 'Simulator device name (falls back to newest available iPhone)'
     type: string

@@ -11,15 +11,25 @@ appId: com.mrh.mobilestore
       TAB: Account
       SCREEN_ID: account-logged-in-content
 
-# Sign Out sits at the bottom of the Account screen, below the menu sections,
-# where the floating tab bar covers it. centerElement scrolls it clear of the
-# tab bar; otherwise the tap lands on the tab bar and nothing happens.
-- scrollUntilVisible:
-    element:
-      id: account-menu-sign-out
-    direction: DOWN
-    centerElement: true
-    timeout: 15000
+# Sign Out sits at the bottom of the Account screen, where the floating tab
+# bar covers it. Swipe inside the list (50%, 70% -> 25%) so the gesture never
+# starts on the tab bar, and stop as soon as the button is visible.
+- repeat:
+    while:
+      notVisible:
+        id: account-menu-sign-out
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 70%
+          end: 50%, 25%
+          duration: 600
+
+# One more swipe lifts the button clear of the tab bar so the tap lands on it.
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+    duration: 600
 
 - tapOn:
     id: account-menu-sign-out
