@@ -218,12 +218,20 @@ jobs:
       SIM_UDID: $(SIM_UDID)
 
   # ---- Run the tests (retries default to 0 so a failing test is not run three times)
+# ---- Run the tests recursively across all subfolders
   - pwsh: |
+      $targetPath = "${{ parameters.testPath }}"
+      if ([string]::IsNullOrWhiteSpace($targetPath)) {
+          $targetPath = "tests/**/*.yaml"
+      } elseif ($targetPath -eq "tests") {
+          $targetPath = "tests/**/*.yaml"
+      }
+      
       ./.maestro/suite/run.ps1 `
         -Platform ios `
         -Device "$(SIM_UDID)" `
         -Retries ${{ parameters.retries }} `
-        -Path "${{ parameters.testPath }}"
+        -Path "$targetPath"
       exit $LASTEXITCODE
     displayName: Run Maestro tests
     timeoutInMinutes: 25
