@@ -36,14 +36,21 @@ tags:
     times: 20
     commands:
       - evalScript: ${output.leftoverFound = false}
-      - scrollUntilVisible:
-          element:
-            id: 'wishlist-card-\d+'
-            text: "${output.data.wishlist.name}, .*"
-          direction: DOWN
-          timeout: 15000
-          optional: true
-          label: Look for a leftover test wishlist
+      # Nothing to scan (and no point scrolling for 15s) when My Lists is empty.
+      - runFlow:
+          when:
+            notVisible:
+              id: wishlists-empty
+          label: Scan for a leftover test wishlist
+          commands:
+            - scrollUntilVisible:
+                element:
+                  id: 'wishlist-card-\d+'
+                  text: "${output.data.wishlist.name}, .*"
+                direction: DOWN
+                timeout: 15000
+                optional: true
+                label: Look for a leftover test wishlist
       - runFlow:
           when:
             visible:
@@ -72,17 +79,59 @@ tags:
                   id: wishlist-delete-sheet
                 timeout: 15000
 
-- tapOn:
-    id: new-list-button
+# With no lists the screen shows the empty state (wishlists-empty-create)
+# instead of the + New List button, so open the create sheet from whichever
+# is present.
+- runFlow:
+    when:
+      visible:
+        id: new-list-button
     label: Tap + New List
+    commands:
+      - tapOn:
+          id: new-list-button
+- runFlow:
+    when:
+      visible:
+        id: wishlists-empty-create
+    label: Tap Create List (empty state)
+    commands:
+      - tapOn:
+          id: wishlists-empty-create
+- extendedWaitUntil:
+    visible:
+      id: wishlist-form-sheet-input
+    timeout: 10000
+    label: Wait for the create sheet
 - tapOn:
     id: wishlist-form-sheet-input
 - inputText: ${output.data.wishlist.name}
-# The keyboard covers the Create List button.
-- runFlow: ../../subflows/common/hide-keyboard.yaml
-- tapOn:
-    id: wishlist-form-sheet-submit
+# The keyboard covers the Create List button, so close it first. Android's
+# Back key can also dismiss the sheet, so this only dismisses what is needed:
+#   1. hideKeyboard (platform-aware).
+#   2. If Create List is still not on screen, press Enter (the keyboard's
+#      Done key), which blurs the input and may submit the form itself.
+#   3. Tap Create List only if the sheet is still open and the button is there.
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 2000
+- runFlow:
+    when:
+      notVisible:
+        id: wishlist-form-sheet-submit
+    label: Keyboard still covering Create List, press Done
+    commands:
+      - pressKey: Enter
+      - waitForAnimationToEnd:
+          timeout: 2000
+- runFlow:
+    when:
+      visible:
+        id: wishlist-form-sheet-submit
     label: Tap Create List
+    commands:
+      - tapOn:
+          id: wishlist-form-sheet-submit
 - extendedWaitUntil:
     notVisible:
       id: wishlist-form-sheet
@@ -228,7 +277,11 @@ tags:
       id: 'cart-item-[0-9a-f-]+'
       text: "${output.productNameRe}, quantity 1, price ${output.priceRe}, .*"
     direction: DOWN
-    timeout: 30000
+    # The account's cart is long (~40 rows, about 4 per screen) and the default
+    # scroll speed needs more than 30s to reach the end, so go faster and allow
+    # a full pass.
+    speed: 70
+    timeout: 120000
     label: Cart has the product at the captured price, quantity 1
 
 # ── Cleanup ──────────────────────────────────────────────────────────────────

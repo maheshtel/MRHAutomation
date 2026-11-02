@@ -37,6 +37,6 @@ appId: com.mrh.mobilestore
 
 - extendedWaitUntil:
     visible:
-      id: new-list-button
-    timeout: 15000
-    label: Wait for My Lists
+      id: 'new-list-button|wishlists-empty-create'
+    timeout: 20000
+    label: Wait for My Lists (populated or empty)

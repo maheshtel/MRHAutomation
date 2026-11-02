@@ -1,0 +1,221 @@
+# Maestro Android tests - Azure DevOps, Microsoft-hosted agent, manual trigger only.
+trigger: none
+pr: none
+
+parameters:
+  - name: apkUrl
+    displayName: 'APK download URL'
+    type: string
+    default: 'https://autoteststoragemahesh.blob.core.windows.net/maheshcontainer/mrh.apk'
+  - name: testPath
+    displayName: 'Test file, folder or glob (relative to .maestro/suite, empty = whole suite)'
+    type: string
+    default: 'tests/**/*.yaml'
+  - name: retries
+    displayName: 'Retries per failed test'
+    type: number
+    default: 2
+  - name: apiLevel
+    displayName: 'Android API level'
+    type: string
+    default: '31'               # older images boot much faster on the hosted Intel Macs
+
+variables:
+  MAESTRO_VERSION: '2.11.0'
+  MAESTRO_CLI_NO_ANALYTICS: '1'
+  MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+  # 'default' = plain Android without Google Play services/apps: much lighter and faster on CI
+  EMULATOR_IMAGE: 'system-images;android-${{ parameters.apiLevel }};default;x86_64'
+  APK_FILE: '$(Agent.TempDirectory)/app.apk'
+
+jobs:
+- job: maestro_android
+  displayName: Maestro - Android
+  timeoutInMinutes: 60
+  pool:
+    vmImage: macOS-15          # Intel x64 image; the x86_64 emulator needs it
+  steps:
+  - checkout: self
+
+  - task: JavaToolInstaller@0
+    displayName: Use Java 17
+    inputs:
+      versionSpec: '17'
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalled
+
+  - script: |
+      set -e
+      export MAESTRO_VERSION="$(MAESTRO_VERSION)"
+      curl -fsSL "https://get.maestro.mobile.dev" | bash
+      echo "##vso[task.prependpath]$HOME/.maestro/bin"
+      echo "##vso[task.prependpath]$ANDROID_HOME/platform-tools"
+      echo "##vso[task.prependpath]$ANDROID_HOME/emulator"
+      "$HOME/.maestro/bin/maestro" --version
+    displayName: Install Maestro
+
+  - script: |
+      set -e
+      curl -fL --retry 3 -o "$(APK_FILE)" "$APK_URL"
+      ls -lh "$(APK_FILE)"
+      # A real APK is a zip file and starts with "PK"
+      head -c 2 "$(APK_FILE)" | grep -q PK || { echo "##vso[task.logissue type=error]Downloaded file is not an APK (check the URL / blob access)"; head -c 300 "$(APK_FILE)"; exit 1; }
+    displayName: Download APK
+    env:
+      APK_URL: ${{ parameters.apkUrl }}
+
+  - script: |
+      set -e
+      SDK="$ANDROID_HOME/cmdline-tools/latest/bin"
+      EMU="$ANDROID_HOME/emulator/emulator"
+      ADB="$ANDROID_HOME/platform-tools/adb"
+
+      yes | "$SDK/sdkmanager" --licenses > /dev/null
+      "$SDK/sdkmanager" --install "$(EMULATOR_IMAGE)" "emulator" "platform-tools" > /dev/null
+      echo "no" | "$SDK/avdmanager" create avd -n ci -k "$(EMULATOR_IMAGE)" -d pixel_6 --force
+
+      echo "--- Hardware acceleration check ---"
+      "$EMU" -accel-check || true
+
+      LOG="$(Agent.TempDirectory)/emulator.log"
+      nohup "$EMU" -avd ci -no-window -no-audio -no-boot-anim -no-snapshot \
+        -accel on -cores 3 -memory 4096 -gpu swiftshader_indirect \
+        -camera-back none -camera-front none -netdelay none -netspeed full \
+        > "$LOG" 2>&1 &
+
+      echo "Waiting for boot (max 12 min)..."
+      START=$(date +%s)
+      until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
+        ELAPSED=$(( $(date +%s) - START ))
+        if [ $ELAPSED -gt 720 ]; then
+          echo "##vso[task.logissue type=error]Emulator did not boot in 12 minutes"
+          cat "$LOG"; exit 1
+        fi
+        if [ $(( ELAPSED % 60 )) -lt 5 ]; then echo "  ${ELAPSED}s - last log line: $(tail -n 1 "$LOG")"; fi
+        sleep 5
+      done
+      echo "Booted in $(( $(date +%s) - START ))s"
+
+      # Don't show "isn't responding" (ANR) / crash dialogs over the app under test
+      "$ADB" shell settings put global hide_error_dialogs 1
+      "$ADB" shell settings put secure anr_show_background 0
+      "$ADB" shell settings put global package_verifier_enable 0
+
+      # Let post-boot background work finish before testing
+      echo "Letting the emulator settle for 45s..."
+      sleep 45
+      "$ADB" shell input keyevent KEYCODE_HOME
+
+      "$ADB" shell settings put global window_animation_scale 0
+      "$ADB" shell settings put global transition_animation_scale 0
+      "$ADB" shell settings put global animator_duration_scale 0
+      "$ADB" devices
+    displayName: Start Android emulator
+
+  # Same as local: run.ps1 installs the APK (-Apk/-ReinstallApp) and runs the tests.
+  # A glob such as tests/**/*.yaml is expanded here, so no yaml file is missed.
+  - pwsh: |
+      $suite = (Resolve-Path (Join-Path $env:BUILD_SOURCESDIRECTORY '.maestro/suite')).Path
+
+      $common = @{
+        Platform     = 'android'
+        Device       = 'emulator-5554'
+        Apk          = $env:APK_FILE
+        ReinstallApp = $true
+        Retries      = [int]$env:RETRIES
+      }
+
+      $testPath = $env:TEST_PATH
+
+      # 1) Empty = whole suite
+      if ([string]::IsNullOrWhiteSpace($testPath)) {
+        ./.maestro/suite/run.ps1 @common
+        exit $LASTEXITCODE
+      }
+
+      # 2) Glob = expand it ourselves (supports ** for subfolders)
+      if ($testPath -match '[\*\?]') {
+        $glob = $testPath -replace '\\', '/'
+        $rx = '^' + ([regex]::Escape($glob) `
+                -replace '\\\*\\\*/', '(.*/)?' `
+                -replace '\\\*\\\*',  '.*' `
+                -replace '\\\*',      '[^/]*' `
+                -replace '\\\?',      '[^/]') + '$'
+
+        $files = Get-ChildItem -Path $suite -Recurse -File |
+          ForEach-Object {
+            $rel = $_.FullName.Substring($suite.Length).TrimStart('/', '\') -replace '\\', '/'
+            if ($rel -match $rx) { $rel }
+          } | Sort-Object
+
+        if (-not $files) {
+          Write-Host "##vso[task.logissue type=error]No files matched '$testPath'"
+          exit 1
+        }
+
+        Write-Host "Matched $(@($files).Count) file(s):"
+        $files | ForEach-Object { Write-Host "  $_" }
+
+        $failed = 0
+        foreach ($f in $files) {
+          Write-Host "=== Running $f ==="
+          ./.maestro/suite/run.ps1 @common -Path $f
+          if ($LASTEXITCODE -ne 0) { $failed++ }
+          # Reinstall the app only before the first test
+          $common.ReinstallApp = $false
+        }
+
+        if ($failed -gt 0) {
+          Write-Host "##vso[task.logissue type=error]$failed test file(s) failed"
+          exit 1
+        }
+        exit 0
+      }
+
+      # 3) Plain file or folder
+      ./.maestro/suite/run.ps1 @common -Path $testPath
+      exit $LASTEXITCODE
+    displayName: Run Maestro tests
+    env:
+      APK_FILE: $(APK_FILE)
+      RETRIES: ${{ parameters.retries }}
+      TEST_PATH: ${{ parameters.testPath }}
+
+  - task: PublishTestResults@2
+    displayName: Publish test results
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      searchFolder: '$(Build.SourcesDirectory)/.maestro/suite/reports/android'
+      testResultsFiles: '**/report.xml'
+      testRunTitle: 'Maestro Android'
+
+  - script: mkdir -p "$(Build.SourcesDirectory)/.maestro/suite/screenshots"
+    displayName: Ensure screenshots folder exists
+    condition: always()
+
+  - task: PublishPipelineArtifact@1
+    displayName: Upload failure screenshots
+    condition: always()
+    continueOnError: true
+    inputs:
+      targetPath: '$(Build.SourcesDirectory)/.maestro/suite/screenshots'
+      artifact: maestro-android-screenshots-$(System.JobAttempt)
+
+  - script: |
+      mkdir -p "$(Build.ArtifactStagingDirectory)/maestro-logs"
+      cp -R "$HOME/.maestro/tests/." "$(Build.ArtifactStagingDirectory)/maestro-logs/" || true
+    displayName: Collect Maestro debug logs
+    condition: always()
+
+  - task: PublishPipelineArtifact@1
+    displayName: Upload Maestro debug logs
+    condition: always()
+    continueOnError: true
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)/maestro-logs'
+      artifact: maestro-android-debug-$(System.JobAttempt)
+
+  - script: '"$ANDROID_HOME/platform-tools/adb" emu kill || true'
+    displayName: Stop emulator
+    condition: always()

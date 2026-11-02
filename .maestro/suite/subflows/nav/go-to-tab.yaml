@@ -22,19 +22,20 @@ appId: com.mrh.mobilestore
 # full keyboard hides the tab bar completely, and the slow path must still run.
 # Checking for the keyboard only here keeps the common case fast: a "visible"
 # check on an absent element can take several seconds.
-
 # retryTapIfNoChange: false - when we're already on this tab, the tap changes
 # nothing, and Maestro's default would keep waiting and re-tapping (measured:
 # 50s). A tap that really didn't land is handled by the slow path below.
+
 - tapOn:
     text: "${TAB} tab.*"
     optional: true
     retryTapIfNoChange: false
     label: "Tap the ${TAB} tab"
+
 - extendedWaitUntil:
     visible:
       id: ${SCREEN_ID}
-    timeout: 5000
+    timeout: 8000
     optional: true
     label: "Wait for ${SCREEN_ID}"
 

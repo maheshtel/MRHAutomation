@@ -15,6 +15,7 @@ appId: com.mrh.mobilestore
 # Real OnePlus/Oppo/Realme phones: turn on Developer options > "Disable
 # permission monitoring", or clearState and the permission setting are blocked.
 - launchApp:
+    appId: "com.mrh.mobilestore"    
     clearState: true
     clearKeychain: true
     permissions:

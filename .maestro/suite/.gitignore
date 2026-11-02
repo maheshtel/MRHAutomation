@@ -1,0 +1,10 @@
+# Per-run output from run.ps1 (JUnit/HTML reports, screenshots, logs)
+reports/
+
+# Real credentials live in the repo-root .env.test (already ignored there);
+# ignore a stray copy here too so it can never be committed from this folder.
+.env.test
+
+# Per-platform credential overrides; only the .example templates are committed.
+.env.test.*
+!.env.test.*.example
