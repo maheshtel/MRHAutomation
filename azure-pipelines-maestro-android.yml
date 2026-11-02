@@ -53,14 +53,16 @@ jobs:
   # ---- Caches: skip re-downloading the system image and Maestro on repeat runs ----
   - task: Cache@2
     displayName: Cache emulator system image
+    continueOnError: true
     inputs:
-      key: 'android-image | "$(Agent.OS)" | api${{ parameters.apiLevel }}'
+      key: 'android-image | "$(Agent.OS)" | "api${{ parameters.apiLevel }}"'
       path: '$(ANDROID_SDK_DIR)/system-images/android-${{ parameters.apiLevel }}'
 
   - task: Cache@2
     displayName: Cache Maestro
+    continueOnError: true
     inputs:
-      key: 'maestro | "$(Agent.OS)" | $(MAESTRO_VERSION)'
+      key: 'maestro | "$(Agent.OS)" | "$(MAESTRO_VERSION)"'
       path: '$(MAESTRO_DIR)'
 
   # ---- Start the emulator FIRST so it boots while Maestro/APK steps run ----
