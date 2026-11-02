@@ -1,4 +1,4 @@
-# Maestro Android tests - Azure DevOps, Microsoft-hosted agent, manual trigger only.
+# Maestro Android tests (API 36) - Azure DevOps, Microsoft-hosted agent, manual trigger only.
 trigger: none
 pr: none
 
@@ -14,28 +14,34 @@ parameters:
   - name: retries
     displayName: 'Retries per failed test'
     type: number
-    default: 2
+    default: 1
   - name: apiLevel
     displayName: 'Android API level'
     type: string
-    default: '31'               # older images boot much faster on the hosted Intel Macs
+    default: '36'
+  - name: failFast
+    displayName: 'Stop at the first failing test file (faster feedback)'
+    type: boolean
+    default: false
 
 variables:
   MAESTRO_VERSION: '2.11.0'
   MAESTRO_CLI_NO_ANALYTICS: '1'
   MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
-  # 'default' = plain Android without Google Play services/apps: much lighter and faster on CI
-  EMULATOR_IMAGE: 'system-images;android-${{ parameters.apiLevel }};default;x86_64'
   APK_FILE: '$(Agent.TempDirectory)/app.apk'
+  ANDROID_SDK_DIR: '/Users/runner/Library/Android/sdk'
+  MAESTRO_DIR: '/Users/runner/.maestro'
 
 jobs:
 - job: maestro_android
-  displayName: Maestro - Android
-  timeoutInMinutes: 60
+  displayName: Maestro - Android ${{ parameters.apiLevel }}
+  timeoutInMinutes: 45
   pool:
     vmImage: macOS-15          # Intel x64 image; the x86_64 emulator needs it
   steps:
   - checkout: self
+    fetchDepth: 1              # shallow clone = faster checkout
+    clean: false
 
   - task: JavaToolInstaller@0
     displayName: Use Java 17
@@ -44,10 +50,57 @@ jobs:
       jdkArchitectureOption: x64
       jdkSourceOption: PreInstalled
 
+  # ---- Caches: skip re-downloading the system image and Maestro on repeat runs ----
+  - task: Cache@2
+    displayName: Cache emulator system image
+    inputs:
+      key: 'android-image | "$(Agent.OS)" | api${{ parameters.apiLevel }}'
+      path: '$(ANDROID_SDK_DIR)/system-images/android-${{ parameters.apiLevel }}'
+
+  - task: Cache@2
+    displayName: Cache Maestro
+    inputs:
+      key: 'maestro | "$(Agent.OS)" | $(MAESTRO_VERSION)'
+      path: '$(MAESTRO_DIR)'
+
+  # ---- Start the emulator FIRST so it boots while Maestro/APK steps run ----
   - script: |
       set -e
-      export MAESTRO_VERSION="$(MAESTRO_VERSION)"
-      curl -fsSL "https://get.maestro.mobile.dev" | bash
+      SDK="$ANDROID_HOME/cmdline-tools/latest/bin"
+      EMU="$ANDROID_HOME/emulator/emulator"
+      API="${{ parameters.apiLevel }}"
+
+      yes | "$SDK/sdkmanager" --licenses > /dev/null || true
+      "$SDK/sdkmanager" --install "emulator" "platform-tools" > /dev/null
+
+      # Prefer the light 'default' image; fall back to google_apis if it doesn't exist for this API level
+      IMAGE="system-images;android-${API};default;x86_64"
+      if ! "$SDK/sdkmanager" --install "$IMAGE" > /dev/null 2>&1; then
+        echo "'default' image not available for API $API, using google_apis"
+        IMAGE="system-images;android-${API};google_apis;x86_64"
+        "$SDK/sdkmanager" --install "$IMAGE" > /dev/null
+      fi
+      echo "Using image: $IMAGE"
+
+      echo "no" | "$SDK/avdmanager" create avd -n ci -k "$IMAGE" -d pixel_6 --force
+      "$EMU" -accel-check || true
+
+      LOG="$(Agent.TempDirectory)/emulator.log"
+      nohup "$EMU" -avd ci -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
+        -accel on -cores 3 -memory 4096 -gpu swiftshader_indirect \
+        -camera-back none -camera-front none -netdelay none -netspeed full \
+        > "$LOG" 2>&1 &
+      echo "Emulator launching in background"
+    displayName: Launch Android emulator (background boot)
+
+  - script: |
+      set -e
+      if [ ! -x "$HOME/.maestro/bin/maestro" ]; then
+        export MAESTRO_VERSION="$(MAESTRO_VERSION)"
+        curl -fsSL "https://get.maestro.mobile.dev" | bash
+      else
+        echo "Maestro restored from cache"
+      fi
       echo "##vso[task.prependpath]$HOME/.maestro/bin"
       echo "##vso[task.prependpath]$ANDROID_HOME/platform-tools"
       echo "##vso[task.prependpath]$ANDROID_HOME/emulator"
@@ -64,55 +117,41 @@ jobs:
     env:
       APK_URL: ${{ parameters.apkUrl }}
 
+  # ---- Wait for the emulator (it has been booting during the steps above) ----
   - script: |
       set -e
-      SDK="$ANDROID_HOME/cmdline-tools/latest/bin"
-      EMU="$ANDROID_HOME/emulator/emulator"
       ADB="$ANDROID_HOME/platform-tools/adb"
-
-      yes | "$SDK/sdkmanager" --licenses > /dev/null
-      "$SDK/sdkmanager" --install "$(EMULATOR_IMAGE)" "emulator" "platform-tools" > /dev/null
-      echo "no" | "$SDK/avdmanager" create avd -n ci -k "$(EMULATOR_IMAGE)" -d pixel_6 --force
-
-      echo "--- Hardware acceleration check ---"
-      "$EMU" -accel-check || true
-
       LOG="$(Agent.TempDirectory)/emulator.log"
-      nohup "$EMU" -avd ci -no-window -no-audio -no-boot-anim -no-snapshot \
-        -accel on -cores 3 -memory 4096 -gpu swiftshader_indirect \
-        -camera-back none -camera-front none -netdelay none -netspeed full \
-        > "$LOG" 2>&1 &
 
-      echo "Waiting for boot (max 12 min)..."
       START=$(date +%s)
       until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
         ELAPSED=$(( $(date +%s) - START ))
-        if [ $ELAPSED -gt 720 ]; then
-          echo "##vso[task.logissue type=error]Emulator did not boot in 12 minutes"
-          cat "$LOG"; exit 1
+        if [ $ELAPSED -gt 600 ]; then
+          echo "##vso[task.logissue type=error]Emulator did not boot in 10 minutes"
+          tail -n 100 "$LOG"; exit 1
         fi
-        if [ $(( ELAPSED % 60 )) -lt 5 ]; then echo "  ${ELAPSED}s - last log line: $(tail -n 1 "$LOG")"; fi
-        sleep 5
+        if [ $(( ELAPSED % 60 )) -lt 2 ]; then echo "  ${ELAPSED}s - $(tail -n 1 "$LOG")"; fi
+        sleep 2
       done
-      echo "Booted in $(( $(date +%s) - START ))s"
+      echo "Boot completed after waiting ${ELAPSED:-0}s"
 
-      # Don't show "isn't responding" (ANR) / crash dialogs over the app under test
+      # Wait until the package manager answers (real readiness), instead of a fixed long sleep
+      until "$ADB" shell pm path android 2>/dev/null | grep -q package; do sleep 1; done
+
+      # Silence dialogs, disable animations (faster, less flaky)
       "$ADB" shell settings put global hide_error_dialogs 1
       "$ADB" shell settings put secure anr_show_background 0
       "$ADB" shell settings put global package_verifier_enable 0
-
-      # Let post-boot background work finish before testing
-      echo "Letting the emulator settle for 45s..."
-      sleep 45
-      "$ADB" shell input keyevent KEYCODE_HOME
-
       "$ADB" shell settings put global window_animation_scale 0
       "$ADB" shell settings put global transition_animation_scale 0
       "$ADB" shell settings put global animator_duration_scale 0
-      "$ADB" devices
-    displayName: Start Android emulator
+      "$ADB" shell input keyevent KEYCODE_HOME
 
-  # Same as local: run.ps1 installs the APK (-Apk/-ReinstallApp) and runs the tests.
+      sleep 10    # short settle for post-boot background work
+      "$ADB" devices
+    displayName: Wait for emulator ready
+
+  # run.ps1 installs the APK (-Apk/-ReinstallApp) and runs the tests.
   # A glob such as tests/**/*.yaml is expanded here, so no yaml file is missed.
   - pwsh: |
       $suite = (Resolve-Path (Join-Path $env:BUILD_SOURCESDIRECTORY '.maestro/suite')).Path
@@ -126,8 +165,9 @@ jobs:
       }
 
       $testPath = $env:TEST_PATH
+      $failFast = ($env:FAIL_FAST -eq 'true')
 
-      # 1) Empty = whole suite
+      # 1) Empty = whole suite (single run.ps1 call = fastest, one driver startup)
       if ([string]::IsNullOrWhiteSpace($testPath)) {
         ./.maestro/suite/run.ps1 @common
         exit $LASTEXITCODE
@@ -160,7 +200,10 @@ jobs:
         foreach ($f in $files) {
           Write-Host "=== Running $f ==="
           ./.maestro/suite/run.ps1 @common -Path $f
-          if ($LASTEXITCODE -ne 0) { $failed++ }
+          if ($LASTEXITCODE -ne 0) {
+            $failed++
+            if ($failFast) { Write-Host "Fail-fast enabled, stopping."; break }
+          }
           # Reinstall the app only before the first test
           $common.ReinstallApp = $false
         }
@@ -180,7 +223,9 @@ jobs:
       APK_FILE: $(APK_FILE)
       RETRIES: ${{ parameters.retries }}
       TEST_PATH: ${{ parameters.testPath }}
+      FAIL_FAST: ${{ parameters.failFast }}
 
+  # ---- Reporting (always runs) ----
   - task: PublishTestResults@2
     displayName: Publish test results
     condition: always()
@@ -188,33 +233,26 @@ jobs:
       testResultsFormat: JUnit
       searchFolder: '$(Build.SourcesDirectory)/.maestro/suite/reports/android'
       testResultsFiles: '**/report.xml'
-      testRunTitle: 'Maestro Android'
+      testRunTitle: 'Maestro Android API ${{ parameters.apiLevel }}'
 
-  - script: mkdir -p "$(Build.SourcesDirectory)/.maestro/suite/screenshots"
-    displayName: Ensure screenshots folder exists
-    condition: always()
-
-  - task: PublishPipelineArtifact@1
-    displayName: Upload failure screenshots
-    condition: always()
-    continueOnError: true
-    inputs:
-      targetPath: '$(Build.SourcesDirectory)/.maestro/suite/screenshots'
-      artifact: maestro-android-screenshots-$(System.JobAttempt)
-
+  # Only collect artifacts that exist, and only when something failed, to save upload time
   - script: |
-      mkdir -p "$(Build.ArtifactStagingDirectory)/maestro-logs"
-      cp -R "$HOME/.maestro/tests/." "$(Build.ArtifactStagingDirectory)/maestro-logs/" || true
-    displayName: Collect Maestro debug logs
-    condition: always()
+      STAGE="$(Build.ArtifactStagingDirectory)/maestro-artifacts"
+      mkdir -p "$STAGE"
+      SHOTS="$(Build.SourcesDirectory)/.maestro/suite/screenshots"
+      [ -d "$SHOTS" ] && cp -R "$SHOTS" "$STAGE/screenshots" || true
+      [ -d "$HOME/.maestro/tests" ] && cp -R "$HOME/.maestro/tests" "$STAGE/maestro-logs" || true
+      cp "$(Agent.TempDirectory)/emulator.log" "$STAGE/" 2>/dev/null || true
+    displayName: Collect failure artifacts
+    condition: failed()
 
   - task: PublishPipelineArtifact@1
-    displayName: Upload Maestro debug logs
-    condition: always()
+    displayName: Upload failure artifacts
+    condition: failed()
     continueOnError: true
     inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)/maestro-logs'
-      artifact: maestro-android-debug-$(System.JobAttempt)
+      targetPath: '$(Build.ArtifactStagingDirectory)/maestro-artifacts'
+      artifact: maestro-android-failure-$(System.JobAttempt)
 
   - script: '"$ANDROID_HOME/platform-tools/adb" emu kill || true'
     displayName: Stop emulator
