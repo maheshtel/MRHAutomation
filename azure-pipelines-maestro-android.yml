@@ -14,7 +14,7 @@ parameters:
   - name: retries
     displayName: 'Retries per failed test'
     type: number
-    default: 1
+    default: 0
   - name: apiLevel
     displayName: 'Android API level'
     type: string
@@ -22,7 +22,7 @@ parameters:
   - name: failFast
     displayName: 'Stop at the first failing test file (faster feedback)'
     type: boolean
-    default: false
+    default: true
 
 variables:
   MAESTRO_VERSION: '2.11.0'
@@ -35,7 +35,7 @@ variables:
 jobs:
 - job: maestro_android
   displayName: Maestro - Android ${{ parameters.apiLevel }}
-  timeoutInMinutes: 45
+  timeoutInMinutes: 60
   pool:
     vmImage: macOS-15          # Intel x64 image; the x86_64 emulator needs it
   steps:
@@ -55,7 +55,7 @@ jobs:
     displayName: Cache emulator system image
     continueOnError: true
     inputs:
-      key: 'android-image | "$(Agent.OS)" | "api${{ parameters.apiLevel }}"'
+      key: 'android-image-gapis | "$(Agent.OS)" | "api${{ parameters.apiLevel }}"'
       path: '$(ANDROID_SDK_DIR)/system-images/android-${{ parameters.apiLevel }}'
 
   - task: Cache@2
@@ -75,13 +75,9 @@ jobs:
       yes | "$SDK/sdkmanager" --licenses > /dev/null || true
       "$SDK/sdkmanager" --install "emulator" "platform-tools" > /dev/null
 
-      # Prefer the light 'default' image; fall back to google_apis if it doesn't exist for this API level
-      IMAGE="system-images;android-${API};default;x86_64"
-      if ! "$SDK/sdkmanager" --install "$IMAGE" > /dev/null 2>&1; then
-        echo "'default' image not available for API $API, using google_apis"
-        IMAGE="system-images;android-${API};google_apis;x86_64"
-        "$SDK/sdkmanager" --install "$IMAGE" > /dev/null
-      fi
+      # google_apis = includes Google Play services (needed if the app uses Firebase/Maps/Google sign-in)
+      IMAGE="system-images;android-${API};google_apis;x86_64"
+      "$SDK/sdkmanager" --install "$IMAGE" > /dev/null
       echo "Using image: $IMAGE"
 
       echo "no" | "$SDK/avdmanager" create avd -n ci -k "$IMAGE" -d pixel_6 --force
@@ -153,6 +149,26 @@ jobs:
       "$ADB" devices
     displayName: Wait for emulator ready
 
+  # ---- Launch check: screenshot + logcat to see why the app might not reach the home screen ----
+  - script: |
+      ADB="$ANDROID_HOME/platform-tools/adb"
+      PKG=com.mrh.mobilestore
+      OUT="$(Build.ArtifactStagingDirectory)/maestro-artifacts"
+      mkdir -p "$OUT"
+
+      "$ADB" install -r -g "$(APK_FILE)"
+      "$ADB" logcat -c
+      "$ADB" shell monkey -p $PKG -c android.intent.category.LAUNCHER 1
+      sleep 25
+
+      "$ADB" exec-out screencap -p > "$OUT/launch.png"
+      "$ADB" logcat -d > "$OUT/launch-logcat.txt"
+      echo "App process: $("$ADB" shell pidof $PKG || echo NOT RUNNING)"
+      grep -E "FATAL EXCEPTION|ANR in|Process: $PKG" "$OUT/launch-logcat.txt" | head -20 || true
+      "$ADB" shell am force-stop $PKG || true
+    displayName: App launch diagnostics
+    continueOnError: true
+
   # run.ps1 installs the APK (-Apk/-ReinstallApp) and runs the tests.
   # A glob such as tests/**/*.yaml is expanded here, so no yaml file is missed.
   - pwsh: |
@@ -221,6 +237,7 @@ jobs:
       ./.maestro/suite/run.ps1 @common -Path $testPath
       exit $LASTEXITCODE
     displayName: Run Maestro tests
+    timeoutInMinutes: 25
     env:
       APK_FILE: $(APK_FILE)
       RETRIES: ${{ parameters.retries }}
@@ -246,11 +263,11 @@ jobs:
       [ -d "$HOME/.maestro/tests" ] && cp -R "$HOME/.maestro/tests" "$STAGE/maestro-logs" || true
       cp "$(Agent.TempDirectory)/emulator.log" "$STAGE/" 2>/dev/null || true
     displayName: Collect failure artifacts
-    condition: failed()
+    condition: always()
 
   - task: PublishPipelineArtifact@1
     displayName: Upload failure artifacts
-    condition: failed()
+    condition: always()
     continueOnError: true
     inputs:
       targetPath: '$(Build.ArtifactStagingDirectory)/maestro-artifacts'
