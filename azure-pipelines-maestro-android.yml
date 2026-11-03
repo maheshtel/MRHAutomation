@@ -1,4 +1,4 @@
-# Maestro Android tests (API 36) - Azure DevOps, Microsoft-hosted agent, manual trigger only.
+# Maestro Android tests (default API 34) - Azure DevOps, Microsoft-hosted agent, manual trigger only.
 trigger: none
 pr: none
 
@@ -18,7 +18,14 @@ parameters:
   - name: apiLevel
     displayName: 'Android API level'
     type: string
-    default: '36'
+    default: '34'
+  - name: imageVariant
+    displayName: 'System image: default (light, no Google services) or google_apis'
+    type: string
+    default: 'default'
+    values:
+      - default
+      - google_apis
   - name: failFast
     displayName: 'Stop at the first failing test file (faster feedback)'
     type: boolean
@@ -55,7 +62,7 @@ jobs:
     displayName: Cache emulator system image
     continueOnError: true
     inputs:
-      key: 'android-image-gapis | "$(Agent.OS)" | "api${{ parameters.apiLevel }}"'
+      key: 'android-image | "$(Agent.OS)" | "${{ parameters.imageVariant }}" | "api${{ parameters.apiLevel }}"'
       path: '$(ANDROID_SDK_DIR)/system-images/android-${{ parameters.apiLevel }}'
 
   - task: Cache@2
@@ -75,12 +82,18 @@ jobs:
       yes | "$SDK/sdkmanager" --licenses > /dev/null || true
       "$SDK/sdkmanager" --install "emulator" "platform-tools" > /dev/null
 
-      # google_apis = includes Google Play services (needed if the app uses Firebase/Maps/Google sign-in)
-      IMAGE="system-images;android-${API};google_apis;x86_64"
+      # 'default' = light AOSP image (fastest). Use google_apis only if the app needs Google Play services.
+      IMAGE="system-images;android-${API};${{ parameters.imageVariant }};x86_64"
       "$SDK/sdkmanager" --install "$IMAGE" > /dev/null
       echo "Using image: $IMAGE"
 
       echo "no" | "$SDK/avdmanager" create avd -n ci -k "$IMAGE" -d pixel_6 --force
+
+      # Host CPU info (the hosted Mac is small) and an explicit vCPU request in the AVD config
+      echo "Host logical CPUs: $(sysctl -n hw.logicalcpu)"
+      AVD_CFG="$HOME/.android/avd/ci.avd/config.ini"
+      sed -i '' '/^hw.cpu.ncore/d' "$AVD_CFG"
+      echo "hw.cpu.ncore=3" >> "$AVD_CFG"
       "$EMU" -accel-check || true
 
       LOG="$(Agent.TempDirectory)/emulator.log"
@@ -121,17 +134,35 @@ jobs:
       ADB="$ANDROID_HOME/platform-tools/adb"
       LOG="$(Agent.TempDirectory)/emulator.log"
 
+      MAX=900   # 15 minutes
       START=$(date +%s)
-      until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
+      LAST_PRINT=-30
+      while true; do
         ELAPSED=$(( $(date +%s) - START ))
-        if [ $ELAPSED -gt 600 ]; then
-          echo "##vso[task.logissue type=error]Emulator did not boot in 10 minutes"
+        BOOT="$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+        [ "$BOOT" = "1" ] && break
+
+        # Fail fast if the emulator process died instead of waiting out the timeout
+        if ! pgrep -f "qemu-system" > /dev/null; then
+          echo "##vso[task.logissue type=error]Emulator process is not running (crashed?)"
           tail -n 100 "$LOG"; exit 1
         fi
-        if [ $(( ELAPSED % 60 )) -lt 2 ]; then echo "  ${ELAPSED}s - $(tail -n 1 "$LOG")"; fi
+
+        if [ $ELAPSED -gt $MAX ]; then
+          echo "##vso[task.logissue type=error]Emulator did not boot in $((MAX/60)) minutes"
+          tail -n 100 "$LOG"; exit 1
+        fi
+
+        # Progress line every 30s (ignores the harmless update-check warning)
+        if [ $(( ELAPSED - LAST_PRINT )) -ge 30 ]; then
+          STATE="$("$ADB" get-state 2>/dev/null || echo offline)"
+          LASTLINE="$(grep -v 'emu-update-last-check' "$LOG" | tail -n 1 | cut -c1-120)"
+          echo "  ${ELAPSED}s | process: running | adb: ${STATE} | boot_completed: ${BOOT:-n/a} | log: ${LASTLINE:-<none>}"
+          LAST_PRINT=$ELAPSED
+        fi
         sleep 2
       done
-      echo "Boot completed after waiting ${ELAPSED:-0}s"
+      echo "Boot completed after ${ELAPSED}s"
 
       # Wait until the package manager answers (real readiness), instead of a fixed long sleep
       until "$ADB" shell pm path android 2>/dev/null | grep -q package; do sleep 1; done
@@ -149,25 +180,32 @@ jobs:
       "$ADB" devices
     displayName: Wait for emulator ready
 
-  # ---- Launch check: screenshot + logcat to see why the app might not reach the home screen ----
+  # ---- Launch check + warm-up: install, start the app once, capture evidence, stop early if it can't start ----
   - script: |
       ADB="$ANDROID_HOME/platform-tools/adb"
       PKG=com.mrh.mobilestore
       OUT="$(Build.ArtifactStagingDirectory)/maestro-artifacts"
+      LOG="$(Agent.TempDirectory)/emulator.log"
       mkdir -p "$OUT"
+
+      echo "vCPU line from emulator log:"; grep -i "virtual cores" "$LOG" || echo "  (none)"
 
       "$ADB" install -r -g "$(APK_FILE)"
       "$ADB" logcat -c
       "$ADB" shell monkey -p $PKG -c android.intent.category.LAUNCHER 1
-      sleep 25
+      sleep 40    # warm-up: first launch compiles/loads the app, so later cold starts are faster
 
       "$ADB" exec-out screencap -p > "$OUT/launch.png"
       "$ADB" logcat -d > "$OUT/launch-logcat.txt"
-      echo "App process: $("$ADB" shell pidof $PKG || echo NOT RUNNING)"
+      cp "$LOG" "$OUT/emulator.log" 2>/dev/null || true
+
       grep -E "FATAL EXCEPTION|ANR in|Process: $PKG" "$OUT/launch-logcat.txt" | head -20 || true
-      "$ADB" shell am force-stop $PKG || true
-    displayName: App launch diagnostics
-    continueOnError: true
+      if [ -z "$("$ADB" shell pidof $PKG | tr -d '\r')" ]; then
+        echo "##vso[task.logissue type=error]App is not running after launch - see launch.png / launch-logcat.txt"
+        exit 1
+      fi
+      echo "App process is running"
+    displayName: App launch check (warm-up)
 
   # run.ps1 installs the APK (-Apk/-ReinstallApp) and runs the tests.
   # A glob such as tests/**/*.yaml is expanded here, so no yaml file is missed.
@@ -237,7 +275,7 @@ jobs:
       ./.maestro/suite/run.ps1 @common -Path $testPath
       exit $LASTEXITCODE
     displayName: Run Maestro tests
-    timeoutInMinutes: 25
+    timeoutInMinutes: 35
     env:
       APK_FILE: $(APK_FILE)
       RETRIES: ${{ parameters.retries }}
