@@ -4,35 +4,56 @@ appId: com.mrh.mobilestore
 #
 # Precondition: signed in.
 # Ends on:      the Account tab in guest state (account-guest-signin visible).
+#
+# Written to survive both the Android emulator and the iOS simulator on slow
+# CI machines, where scrolls and taps take several seconds each:
+#   - The whole attempt (open Account, scroll, tap, check) sits in a retry
+#     block, so a tap that landed on the floating tab bar, or a scroll that
+#     ran out of time, is simply tried again from a known place.
+#   - Step 1 only needs Sign Out to be on screen (no centering), so it can't
+#     get stuck when the row is too close to the end of the list to be centered.
+#   - Step 2 then tries to center it clear of the floating tab bar. It is
+#     optional and short: if the list can't scroll any further the row is
+#     already as clear as it will get, and the tap goes ahead.
+#   - The result is checked by waiting for the guest screen, not by a fixed
+#     sleep, so a fast device doesn't wait and a slow one gets enough time.
 
-- runFlow:
-    file: ../nav/go-to-tab.yaml
-    env:
-      TAB: Account
-      SCREEN_ID: account-logged-in-content
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow:
+          file: ../nav/go-to-tab.yaml
+          env:
+            TAB: Account
+            SCREEN_ID: account-logged-in-content
 
-# Sign Out sits at the bottom of the Account screen, below the menu sections,
-# where the floating tab bar covers it. centerElement scrolls it clear of the
-# tab bar; otherwise the tap lands on the tab bar and nothing happens.
-- scrollUntilVisible:
-    element:
-      id: account-menu-sign-out
-    direction: DOWN
-    centerElement: true
-    timeout: 60000
-    visibilityPercentage: 80
-    
+      # 1. Make sure Sign Out is on screen. Ends as soon as it appears.
+      - scrollUntilVisible:
+          element:
+            id: account-menu-sign-out
+          direction: DOWN
+          speed: 60
+          visibilityPercentage: 50
+          timeout: 60000
+          label: Scroll until Sign Out is on screen
 
-- tapOn:
-    id: account-menu-sign-out
+      # 2. Move it clear of the floating tab bar (no-op if already clear).
+      - scrollUntilVisible:
+          element:
+            id: account-menu-sign-out
+          direction: DOWN
+          centerElement: true
+          visibilityPercentage: 80
+          timeout: 20000
+          optional: true
+          label: Center Sign Out above the tab bar
 
-# Allow state transition and token clearing to complete
-- waitForAnimationToEnd:
-    timeout: 3000
+      - tapOn:
+          id: account-menu-sign-out
+          label: Tap Sign Out
 
-# Assert guest sign-in element is visible with an explicit timeout
-- extendedWaitUntil:
-    visible:
-      id: "account-guest-signin"
-    timeout: 15000
-    label: "Wait for guest Account screen"
+      - extendedWaitUntil:
+          visible:
+            id: account-guest-signin
+          timeout: 45000
+          label: Wait for the guest Account screen
