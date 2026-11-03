@@ -8,9 +8,9 @@ parameters:
     type: string
     default: 'https://autoteststoragemahesh.blob.core.windows.net/maheshcontainer/MountainRose.app.zip'
   - name: testPath
-    displayName: 'Test file or folder (relative to .maestro/suite, empty = whole suite)'
+    displayName: 'Test file, folder or glob (relative to .maestro/suite; empty or "tests" = tests/**/*.yaml)'
     type: string
-    default: ''
+    default: 'tests/**/*.yaml'
   - name: retries
     displayName: 'Retries per failed test'
     type: number
@@ -43,6 +43,8 @@ jobs:
     vmImage: macOS-15
   steps:
   - checkout: self
+    fetchDepth: 1              # shallow clone = faster checkout
+    clean: false
 
   # ---- Select the Xcode that matches the requested iOS runtime
   - script: |
@@ -93,6 +95,8 @@ jobs:
       fi
 
       echo "Using simulator: $SIM_UDID ($IOS_DEVICE, iOS $IOS_VERSION)"
+      # Use the on-screen keyboard like the flows expect (best effort: this is a Simulator.app preference)
+      defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false || true
       xcrun simctl boot "$SIM_UDID" || true
       echo "##vso[task.setvariable variable=SIM_UDID]$SIM_UDID"
     displayName: Start simulator boot
@@ -186,6 +190,13 @@ jobs:
   - script: |
       set -euo pipefail
       xcrun simctl bootstatus "$SIM_UDID" -b
+
+      # Best effort: stop autocorrect / prediction bar / accent pop-ups from changing typed text or covering buttons
+      xcrun simctl spawn "$SIM_UDID" defaults write com.apple.Preferences KeyboardAutocorrection -bool false || true
+      xcrun simctl spawn "$SIM_UDID" defaults write com.apple.Preferences KeyboardPrediction -bool false || true
+      xcrun simctl spawn "$SIM_UDID" defaults write com.apple.Preferences KeyboardShowPredictionBar -bool false || true
+      xcrun simctl spawn "$SIM_UDID" defaults write -g ApplePressAndHoldEnabled -bool false || true
+
       xcrun simctl install "$SIM_UDID" "$APP_PATH"
       echo "App installed on $SIM_UDID"
     displayName: Wait for simulator and install app
@@ -217,24 +228,27 @@ jobs:
     env:
       SIM_UDID: $(SIM_UDID)
 
-  # ---- Run the tests (retries default to 0 so a failing test is not run three times)
-# ---- Run the tests recursively across all subfolders
+  # ---- Run the tests. run.ps1 expands the glob itself and runs every matched file in ONE
+  # Maestro session (one driver startup, one report), so the glob is passed straight through.
   - pwsh: |
-      $targetPath = "${{ parameters.testPath }}"
-      if ([string]::IsNullOrWhiteSpace($targetPath)) {
-          $targetPath = "tests/**/*.yaml"
-      } elseif ($targetPath -eq "tests") {
-          $targetPath = "tests/**/*.yaml"
+      $targetPath = $env:TEST_PATH
+      if ([string]::IsNullOrWhiteSpace($targetPath) -or $targetPath -eq 'tests') {
+        $targetPath = 'tests/**/*.yaml'
       }
-      
+      Write-Host "Test path: $targetPath"
+
       ./.maestro/suite/run.ps1 `
         -Platform ios `
-        -Device "$(SIM_UDID)" `
-        -Retries ${{ parameters.retries }} `
-        -Path "$targetPath"
+        -Device $env:SIM_UDID `
+        -Retries ([int]$env:RETRIES) `
+        -Path $targetPath
       exit $LASTEXITCODE
     displayName: Run Maestro tests
-    timeoutInMinutes: 25
+    timeoutInMinutes: 35
+    env:
+      TEST_PATH: ${{ parameters.testPath }}
+      SIM_UDID: $(SIM_UDID)
+      RETRIES: ${{ parameters.retries }}
 
   - task: PublishTestResults@2
     displayName: Publish test results
@@ -242,7 +256,7 @@ jobs:
     inputs:
       testResultsFormat: JUnit
       searchFolder: '$(Build.SourcesDirectory)/.maestro/suite/reports/ios'
-      testResultsFiles: '*/report.xml'
+      testResultsFiles: '**/report.xml'
       testRunTitle: 'Maestro iOS'
 
   # ---- Collect everything useful when the run fails
@@ -280,14 +294,16 @@ jobs:
       find "$OUT" -type f | head -n 100
       exit 0
     displayName: Collect failure artifacts
-    condition: failed()
+    condition: not(succeeded())     # failed or cancelled (e.g. job timeout)
+    timeoutInMinutes: 10
     env:
       SIM_UDID: $(SIM_UDID)
       FAILURE_DIR: $(FAILURE_DIR)
 
   - task: PublishPipelineArtifact@1
     displayName: Upload failure artifacts
-    condition: failed()
+    condition: not(succeeded())
+    continueOnError: true
     inputs:
       targetPath: '$(FAILURE_DIR)'
       artifact: maestro-ios-failure-artifacts-$(System.JobAttempt)

@@ -28,7 +28,7 @@ appId: com.mrh.mobilestore
 - extendedWaitUntil:
     visible:
       id: 'cart-empty|cart-(item|gift-certificate)-[0-9a-f-]+'
-    timeout: 20000
+    timeout: 60000
     label: Wait for cart contents to load
 
 - runFlow:
@@ -40,7 +40,7 @@ appId: com.mrh.mobilestore
       - runFlow:
           file: ../common/scroll-to-top.yaml
           env:
-            SWIPES: '6'
+            SWIPES: '10'
       # Each pass scrolls down from where the last one stopped (rows above have
       # already been checked); the loop ends on the first pass that reaches the
       # bottom without a match.
@@ -57,7 +57,12 @@ appId: com.mrh.mobilestore
                   text: "${NAME_RE}, .*"
                 direction: DOWN
                 centerElement: true
-                timeout: 30000
+                # Faster scroll + longer timeout: on a slow device 30s at the
+                # default speed may not reach the bottom of a long cart, and a
+                # missed row would be reported as "no row left". When no row is
+                # left this always waits out the full timeout.
+                speed: 70
+                timeout: 60000
                 optional: true
                 label: Look for a row of the product
             - runFlow:

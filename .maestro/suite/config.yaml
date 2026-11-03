@@ -5,3 +5,10 @@
 # and must never run on their own, so they are deliberately left out of this glob.
 flows:
   - 'tests/**'
+
+# Turn off UI animations during test runs (less waiting, fewer timing failures on slow CI)
+platform:
+  ios:
+    disableAnimations: true
+  android:
+    disableAnimations: true

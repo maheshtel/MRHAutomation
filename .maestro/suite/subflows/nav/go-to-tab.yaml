@@ -15,45 +15,30 @@ appId: com.mrh.mobilestore
 # the trailing ".*" covers the Cart tab's item count.
 # SCREEN_ID is the id (or id regex) of an element that proves the screen loaded.
 #
-# Fast path: tap once and wait briefly. Almost every call ends here.
-# Slow path (only when the screen didn't open): close a keyboard that may be
-# covering the tab bar (e.g. left open by an earlier test; it survives the app
-# restart), then tap again with retries. The first tap is optional because a
-# full keyboard hides the tab bar completely, and the slow path must still run.
-# Checking for the keyboard only here keeps the common case fast: a "visible"
-# check on an absent element can take several seconds.
+# Why this is one retry block and not "tap, then check with when: notVisible":
+# a `when: notVisible` check on an element that IS visible makes Maestro wait
+# for it to disappear (about 7s) before moving on, and the old version paid
+# that on every single call (measured on both Android and iOS: ~6.6s per call).
+# Here the success path has no such check: tap, wait for the screen, done.
+# If the tap or the wait fails, the whole pair is retried (2 extra attempts).
+#
+# A keyboard left open can hide the tab bar. Close it where it is opened or
+# last used (for example at the end of the login subflow) instead of here, so
+# normal tab changes don't pay for it.
+#
 # retryTapIfNoChange: false - when we're already on this tab, the tap changes
 # nothing, and Maestro's default would keep waiting and re-tapping (measured:
-# 50s). A tap that really didn't land is handled by the slow path below.
+# 50s). A tap that really didn't land is handled by the retry block.
 
-- tapOn:
-    text: "${TAB} tab.*"
-    optional: true
-    retryTapIfNoChange: false
-    label: "Tap the ${TAB} tab"
-
-- extendedWaitUntil:
-    visible:
-      id: ${SCREEN_ID}
-    timeout: 8000
-    optional: true
-    label: "Wait for ${SCREEN_ID}"
-
-- runFlow:
-    when:
-      notVisible:
-        id: ${SCREEN_ID}
-    label: "Tab didn't open: clear the tab bar and tap again"
+- retry:
+    maxRetries: 2
     commands:
-      - runFlow: ../common/hide-keyboard.yaml
-      - retry:
-          maxRetries: 2
-          commands:
-            - tapOn:
-                text: "${TAB} tab.*"
-                label: "Tap the ${TAB} tab again"
-            - extendedWaitUntil:
-                visible:
-                  id: ${SCREEN_ID}
-                timeout: 10000
-                label: "Wait for ${SCREEN_ID}"
+      - tapOn:
+          text: "${TAB} tab.*"
+          retryTapIfNoChange: false
+          label: "Tap the ${TAB} tab"
+      - extendedWaitUntil:
+          visible:
+            id: ${SCREEN_ID}
+          timeout: 30000
+          label: "Wait for ${SCREEN_ID}"

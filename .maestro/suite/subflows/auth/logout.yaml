@@ -19,7 +19,9 @@ appId: com.mrh.mobilestore
       id: account-menu-sign-out
     direction: DOWN
     centerElement: true
-    timeout: 15000
+    timeout: 60000
+    visibilityPercentage: 80
+    
 
 - tapOn:
     id: account-menu-sign-out

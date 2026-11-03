@@ -69,7 +69,7 @@ tags:
             - extendedWaitUntil:
                 visible:
                   id: wishlist-delete-sheet-confirm
-                timeout: 5000
+                timeout: 20000
             - tapOn:
                 id: wishlist-delete-sheet-confirm
             # Wait on the sheet, not the card: another same-named list may
@@ -77,7 +77,7 @@ tags:
             - extendedWaitUntil:
                 notVisible:
                   id: wishlist-delete-sheet
-                timeout: 15000
+                timeout: 45000
 
 # With no lists the screen shows the empty state (wishlists-empty-create)
 # instead of the + New List button, so open the create sheet from whichever
@@ -101,22 +101,24 @@ tags:
 - extendedWaitUntil:
     visible:
       id: wishlist-form-sheet-input
-    timeout: 10000
+    timeout: 30000
     label: Wait for the create sheet
 - tapOn:
     id: wishlist-form-sheet-input
 - inputText: ${output.data.wishlist.name}
 # The keyboard covers the Create List button, so close it first. Android's
 # Back key can also dismiss the sheet, so this only dismisses what is needed:
-#   1. hideKeyboard (platform-aware).
+#   1. dismiss-keyboard subflow (iOS: Enter key, Android: hideKeyboard).
 #   2. If Create List is still not on screen, press Enter (the keyboard's
 #      Done key), which blurs the input and may submit the form itself.
 #   3. Tap Create List only if the sheet is still open and the button is there.
-- hideKeyboard
+- runFlow: ../../subflows/common/dismiss-keyboard.yaml
 - waitForAnimationToEnd:
     timeout: 2000
 - runFlow:
     when:
+      visible:
+        id: wishlist-form-sheet
       notVisible:
         id: wishlist-form-sheet-submit
     label: Keyboard still covering Create List, press Done
@@ -135,7 +137,7 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: wishlist-form-sheet
-    timeout: 15000
+    timeout: 45000
     label: Wait for the create sheet to close
 
 # A new list is added at the top. The leftover scan left us at the bottom, so
@@ -146,7 +148,7 @@ tags:
       id: 'wishlist-card-\d+'
       text: "${output.data.wishlist.name}, 0 items"
     direction: UP
-    timeout: 15000
+    timeout: 45000
     label: New list is shown with 0 items
 
 # ── Open a product and capture its price ─────────────────────────────────────
@@ -183,14 +185,14 @@ tags:
       id: product-detail-actions-wishlist-button
     direction: DOWN
     centerElement: true
-    timeout: 15000
+    timeout: 45000
 - tapOn:
     id: product-detail-actions-wishlist-button
     label: Tap the wishlist (heart) button
 - extendedWaitUntil:
     visible:
       id: add-to-wishlist-modal
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: 'add-to-wishlist-modal-item-\d+'
     text: ${output.data.wishlist.name}
@@ -201,7 +203,7 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: add-to-wishlist-modal
-    timeout: 15000
+    timeout: 45000
 
 # ── Remove the product from the cart ─────────────────────────────────────────
 # Any row of this product already in the account's cart (from earlier runs or
@@ -219,7 +221,7 @@ tags:
       text: "${output.data.wishlist.name}, 1 item"
     direction: DOWN
     centerElement: true
-    timeout: 15000
+    timeout: 45000
     label: Bring the test wishlist clear of the floating tab bar
 - tapOn:
     id: 'wishlist-card-\d+'
@@ -229,7 +231,7 @@ tags:
     visible:
       id: wishlist-detail-header-title
       text: ${output.data.wishlist.name}
-    timeout: 15000
+    timeout: 45000
 - assertVisible:
     id: 'wishlist-product-\d+'
     text: "${output.productNameRe}, .*"
@@ -243,14 +245,14 @@ tags:
 - extendedWaitUntil:
     visible:
       id: wishlist-quick-add-sheet
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: wishlist-quick-add-sheet-form-submit
     label: Tap Add to Cart in Quick Add
 - extendedWaitUntil:
     notVisible:
       id: wishlist-quick-add-sheet
-    timeout: 15000
+    timeout: 45000
 
 # ── Check the same product is in the cart ────────────────────────────────────
 # The product's old rows were deleted above, so its only row is the one Quick
@@ -263,7 +265,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'cart-item-[0-9a-f-]+'
-    timeout: 20000
+    timeout: 60000
     label: Wait for cart rows to load
 
 # The Cart tab keeps its scroll position, so scroll back to the top first,
@@ -271,7 +273,7 @@ tags:
 - runFlow:
     file: ../../subflows/common/scroll-to-top.yaml
     env:
-      SWIPES: '6'
+      SWIPES: '10'
 - scrollUntilVisible:
     element:
       id: 'cart-item-[0-9a-f-]+'

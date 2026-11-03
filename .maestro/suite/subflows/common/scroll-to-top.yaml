@@ -6,7 +6,7 @@ appId: com.mrh.mobilestore
 #   - runFlow:
 #       file: ../../subflows/common/scroll-to-top.yaml
 #       env:
-#         SWIPES: '6'     # enough for the longest list on that screen
+#         SWIPES: '10'    # enough for the longest list on that screen
 #
 # Lists like My Lists and the Cart keep their scroll position and have no fixed
 # element at the top to scroll to, so we swipe down a fixed number of times;
@@ -15,12 +15,16 @@ appId: com.mrh.mobilestore
 # The swipes run along the left edge (x = 3%), outside the cards and rows
 # (which start at x = 44px), so a swipe can never register as a tap that opens
 # a card.
+#
+# Each swipe covers about 70% of the screen height with a short duration, so
+# the list keeps moving after the finger lifts (fling) on both Android and iOS.
+# A slow CI device sometimes drops a swipe, so give long lists a few extra.
 
 - repeat:
     times: ${SWIPES}
     commands:
       - swipe:
-          start: "3%,30%"
-          end: "3%,85%"
-          duration: 300
+          start: "3%,20%"
+          end: "3%,90%"
+          duration: 200
           label: Scroll up
