@@ -26,6 +26,14 @@ parameters:
     values:
       - default
       - google_apis
+  - name: screenSize
+    displayName: 'Emulator screen size (smaller = much faster rendering on the 1-vCPU hosted emulator; empty = device default)'
+    type: string
+    default: '720x1280'
+  - name: shardCount
+    displayName: 'Parallel jobs (test files are split across them; each job boots its own emulator)'
+    type: number
+    default: 1
   - name: failFast
     displayName: 'Stop at the first failing test file (faster feedback)'
     type: boolean
@@ -43,6 +51,8 @@ jobs:
 - job: maestro_android
   displayName: Maestro - Android ${{ parameters.apiLevel }}
   timeoutInMinutes: 60
+  strategy:
+    parallel: ${{ parameters.shardCount }}
   pool:
     vmImage: macOS-15          # Intel x64 image; the x86_64 emulator needs it
   steps:
@@ -89,16 +99,24 @@ jobs:
 
       echo "no" | "$SDK/avdmanager" create avd -n ci -k "$IMAGE" -d pixel_6 --force
 
-      # Host CPU info (the hosted Mac is small) and an explicit vCPU request in the AVD config
+      # The hosted Mac has <6 logical cores, so emulator 37 forces 1 vCPU (-cores is ignored).
+      # With 1 vCPU and software rendering, a smaller screen is the biggest speed-up.
       echo "Host logical CPUs: $(sysctl -n hw.logicalcpu)"
-      AVD_CFG="$HOME/.android/avd/ci.avd/config.ini"
-      sed -i '' '/^hw.cpu.ncore/d' "$AVD_CFG"
-      echo "hw.cpu.ncore=3" >> "$AVD_CFG"
+      SKIN_ARGS=""
+      SCREEN="${{ parameters.screenSize }}"
+      if [ -n "$SCREEN" ]; then
+        W="${SCREEN%x*}"; H="${SCREEN#*x}"
+        AVD_CFG="$HOME/.android/avd/ci.avd/config.ini"
+        sed -i '' -E '/^(hw\.lcd\.(width|height|density)|skin\.(name|path))/d' "$AVD_CFG"
+        printf 'hw.lcd.width=%s\nhw.lcd.height=%s\nhw.lcd.density=320\n' "$W" "$H" >> "$AVD_CFG"
+        SKIN_ARGS="-skin ${W}x${H}"
+        echo "Screen: ${W}x${H} @320dpi"
+      fi
       "$EMU" -accel-check || true
 
       LOG="$(Agent.TempDirectory)/emulator.log"
       nohup "$EMU" -avd ci -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
-        -accel on -cores 3 -memory 4096 -gpu swiftshader_indirect \
+        -accel on -memory 4096 -gpu swiftshader_indirect $SKIN_ARGS \
         -camera-back none -camera-front none -netdelay none -netspeed full \
         > "$LOG" 2>&1 &
       echo "Emulator launching in background"
@@ -249,8 +267,22 @@ jobs:
           exit 1
         }
 
-        Write-Host "Matched $(@($files).Count) file(s):"
+        Write-Host "Matched $(@($files).Count) file(s) in total"
+
+        # Split the files across parallel jobs (round-robin)
+        $pos = 1; $total = 1
+        [void][int]::TryParse($env:SHARD_POS, [ref]$pos)
+        [void][int]::TryParse($env:SHARD_TOTAL, [ref]$total)
+        if ($pos -lt 1) { $pos = 1 }
+        if ($total -lt 1) { $total = 1 }
+        $mine = @()
+        for ($i = 0; $i -lt @($files).Count; $i++) {
+          if (($i % $total) -eq ($pos - 1)) { $mine += $files[$i] }
+        }
+        $files = $mine
+        Write-Host "Shard $pos of $total runs $(@($files).Count) file(s):"
         $files | ForEach-Object { Write-Host "  $_" }
+        if (@($files).Count -eq 0) { Write-Host "Nothing to run in this shard."; exit 0 }
 
         $failed = 0
         foreach ($f in $files) {
@@ -275,12 +307,14 @@ jobs:
       ./.maestro/suite/run.ps1 @common -Path $testPath
       exit $LASTEXITCODE
     displayName: Run Maestro tests
-    timeoutInMinutes: 35
+    timeoutInMinutes: 40
     env:
       APK_FILE: $(APK_FILE)
       RETRIES: ${{ parameters.retries }}
       TEST_PATH: ${{ parameters.testPath }}
       FAIL_FAST: ${{ parameters.failFast }}
+      SHARD_POS: $(System.JobPositionInPhase)
+      SHARD_TOTAL: $(System.TotalJobsInPhase)
 
   # ---- Reporting (always runs) ----
   - task: PublishTestResults@2
@@ -290,7 +324,7 @@ jobs:
       testResultsFormat: JUnit
       searchFolder: '$(Build.SourcesDirectory)/.maestro/suite/reports/android'
       testResultsFiles: '**/report.xml'
-      testRunTitle: 'Maestro Android API ${{ parameters.apiLevel }}'
+      testRunTitle: 'Maestro Android API ${{ parameters.apiLevel }} - shard $(System.JobPositionInPhase)'
 
   # Only collect artifacts that exist, and only when something failed, to save upload time
   - script: |
@@ -309,7 +343,7 @@ jobs:
     continueOnError: true
     inputs:
       targetPath: '$(Build.ArtifactStagingDirectory)/maestro-artifacts'
-      artifact: maestro-android-failure-$(System.JobAttempt)
+      artifact: maestro-android-failure-$(System.JobAttempt)-shard$(System.JobPositionInPhase)
 
   - script: '"$ANDROID_HOME/platform-tools/adb" emu kill || true'
     displayName: Stop emulator
