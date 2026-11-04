@@ -24,5 +24,8 @@ appId: com.mrh.mobilestore
 - extendedWaitUntil:
     visible:
       id: home-screen
-    timeout: 30000
+    # A cold start with cleared state took 28-61s just to launch on the hosted
+    # iOS simulator, and Home then ran past a 30-45s wait in one run, so allow
+    # 3 minutes. A found element ends the wait at once.
+    timeout: 180000
     label: Wait for Home after cold start

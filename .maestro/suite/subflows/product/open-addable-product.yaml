@@ -55,7 +55,7 @@ appId: com.mrh.mobilestore
             - extendedWaitUntil:
                 visible:
                   id: 'home-top-banner-\d+-search-bar-input'
-                timeout: 30000
+                timeout: 90000
                 label: Wait for the Home search bar
             - tapOn:
                 id: 'home-top-banner-\d+-search-bar-input'
@@ -71,7 +71,7 @@ appId: com.mrh.mobilestore
       - extendedWaitUntil:
           visible:
             text: "${output.productNameRe}, .*"
-          timeout: 10000
+          timeout: 25000
           optional: true
           label: "Look for ${output.productName} in the results"
 
@@ -89,13 +89,13 @@ appId: com.mrh.mobilestore
             - extendedWaitUntil:
                 visible:
                   id: product-detail-screen
-                timeout: 20000
+                timeout: 60000
                 label: Wait for the product page
             - scrollUntilVisible:
                 element:
                   id: product-detail-actions-submit
                 direction: DOWN
-                timeout: 15000
+                timeout: 45000
                 optional: true
                 label: Scroll to Add to Cart
 
@@ -138,7 +138,7 @@ appId: com.mrh.mobilestore
                   - extendedWaitUntil:
                       visible:
                         id: search-bar-input
-                      timeout: 10000
+                      timeout: 20000
                       optional: true
                       label: Wait for the Search screen
                   - runFlow:

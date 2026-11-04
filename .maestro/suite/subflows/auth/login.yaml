@@ -16,7 +16,8 @@ appId: com.mrh.mobilestore
 - extendedWaitUntil:
     visible:
       id: login-screen
-    timeout: 10000
+    timeout: 45000
+    label: Wait for the login screen
 
 - tapOn:
     id: email-input
@@ -32,9 +33,12 @@ appId: com.mrh.mobilestore
 # measured) and the keyboard can cover the button on small screens.
 - pressKey: Enter
 
-# Sign-in is a network round trip; allow for a slow sandbox API.
+# Sign-in is a network round trip; allow for a slow sandbox API. On the hosted
+# iOS simulator this wait ran out at 30s in one run while the same sign-in took
+# about 1s in another, so the limit is generous. A found element ends the wait
+# at once, so a fast run does not wait longer.
 - extendedWaitUntil:
     visible:
       id: account-logged-in-content
-    timeout: 30000
+    timeout: 90000
     label: Wait for signed-in Account screen

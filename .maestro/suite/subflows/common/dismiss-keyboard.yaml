@@ -1,27 +1,17 @@
 appId: com.mrh.mobilestore
 ---
-# Closes the on-screen keyboard if it's open, so it can't cover buttons or the
-# tab bar. Safe to call when no keyboard is showing.
+# Closes the on-screen keyboard after typing into a single-line field.
+# Same on Android and iOS: the keyboard's Done/Return key is pressed.
 #
-# Usage:
-#   - runFlow: ../../subflows/common/hide-keyboard.yaml   # relative to the caller
+# Why not `hideKeyboard`:
+#   - iOS: `hideKeyboard` fails ("Couldn't hide the keyboard") after waiting
+#     about 35s when the keyboard has no standard dismiss action, and it
+#     failed this way on the CI simulator.
+#   - Android: `hideKeyboard` presses Back, which can also close the sheet or
+#     screen the field is on.
+# Enter blurs a single-line field on both platforms (and may submit the form,
+# which the calling flow already allows for).
 #
-# Android: Back closes the keyboard at once (hideKeyboard takes ~35s there).
-#   It only runs when Gboard is actually showing: Back without a keyboard would
-#   close a sheet or leave the screen.
-# iOS: no Back key, so hideKeyboard.
+# Do NOT use this for multi-line fields: Enter would add a new line there.
 
-- runFlow:
-    when:
-      platform: Android
-      visible:
-        id: 'com.google.android.inputmethod.latin:id/.*'
-    label: Close the keyboard
-    commands:
-      - pressKey: Back
-
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - hideKeyboard
+- pressKey: Enter

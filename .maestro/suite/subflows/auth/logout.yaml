@@ -13,8 +13,9 @@ appId: com.mrh.mobilestore
 #   - Step 1 only needs Sign Out to be on screen (no centering), so it can't
 #     get stuck when the row is too close to the end of the list to be centered.
 #   - Step 2 then tries to center it clear of the floating tab bar. It is
-#     optional and short: if the list can't scroll any further the row is
-#     already as clear as it will get, and the tap goes ahead.
+#     optional and short (8s): on the iOS simulator the row can't be centered
+#     (the list is already at its end), so this step always runs to its limit
+#     there and then the tap goes ahead; the tap worked in the CI run.
 #   - The result is checked by waiting for the guest screen, not by a fixed
 #     sleep, so a fast device doesn't wait and a slow one gets enough time.
 
@@ -44,7 +45,7 @@ appId: com.mrh.mobilestore
           direction: DOWN
           centerElement: true
           visibilityPercentage: 80
-          timeout: 20000
+          timeout: 8000
           optional: true
           label: Center Sign Out above the tab bar
 
