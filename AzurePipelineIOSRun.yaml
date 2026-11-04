@@ -23,6 +23,10 @@ parameters:
     displayName: 'Simulator iOS version'
     type: string
     default: '26.1'
+  - name: captureHomeUi
+    displayName: 'Diagnostics: capture a screenshot + UI tree of the Home screen before the tests'
+    type: boolean
+    default: true
   - name: xcodeVersion
     displayName: 'Xcode version to select (needs to match the iOS runtime)'
     type: string
@@ -228,6 +232,55 @@ jobs:
     env:
       SIM_UDID: $(SIM_UDID)
 
+  # ---- Diagnostics (set captureHomeUi=false once the Home search bar problem is solved).
+  # Starts the app the same way the tests do, then saves a screenshot and the UI element tree,
+  # so the real accessibility ids / labels on iOS can be compared with the ones the flows use.
+  - ${{ if eq(parameters.captureHomeUi, true) }}:
+    - script: |
+        set -uo pipefail
+        export PATH="$HOME/.maestro/bin:$PATH"
+        DIAG="$(Build.ArtifactStagingDirectory)/home-ui"
+        mkdir -p "$DIAG" "$(Agent.TempDirectory)/diag"
+        cat > "$(Agent.TempDirectory)/diag/home.yaml" <<'EOF'
+        appId: com.mrh.mobilestore
+        ---
+        - launchApp:
+            clearState: true
+            clearKeychain: true
+            permissions:
+              notifications: allow
+        - extendedWaitUntil:
+            visible:
+              id: home-screen
+            timeout: 180000
+        - extendedWaitUntil:
+            visible:
+              id: 'home-top-banner-\d+-search-bar-input'
+            timeout: 60000
+            optional: true
+        - waitForAnimationToEnd:
+            timeout: 5000
+        EOF
+        maestro --device "$SIM_UDID" test "$(Agent.TempDirectory)/diag/home.yaml" || echo "Home flow failed - capturing what is on screen anyway"
+        xcrun simctl io "$SIM_UDID" screenshot "$DIAG/home.png" || true
+        maestro --device "$SIM_UDID" hierarchy > "$DIAG/home-hierarchy.json" 2> "$DIAG/home-hierarchy.err" || true
+        ls -lh "$DIAG"
+        echo "Search bar entries in the UI tree:"
+        grep -o '[^"]*search[^"]*' "$DIAG/home-hierarchy.json" | sort -u | head -20 || true
+      displayName: Capture Home UI (diagnostic)
+      timeoutInMinutes: 12
+      continueOnError: true
+      env:
+        SIM_UDID: $(SIM_UDID)
+
+    - task: PublishPipelineArtifact@1
+      displayName: Upload Home UI diagnostics
+      condition: always()
+      continueOnError: true
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/home-ui'
+        artifact: maestro-ios-home-ui-$(System.JobAttempt)
+
   # ---- Run the tests. run.ps1 expands the glob itself and runs every matched file in ONE
   # Maestro session (one driver startup, one report), so the glob is passed straight through.
   - pwsh: |
@@ -264,6 +317,12 @@ jobs:
       set -uo pipefail
       OUT="$FAILURE_DIR"
       mkdir -p "$OUT/reports" "$OUT/screenshots" "$OUT/maestro-logs" "$OUT/maestro-driver-logs" "$OUT/crash-logs" "$OUT/simulator"
+
+      # Every screenshot from every attempt in one flat folder, named after its report path
+      REPORTS="$(Build.SourcesDirectory)/.maestro/suite/reports/ios"
+      find "$REPORTS" -name "*.png" -print0 2>/dev/null | while IFS= read -r -d '' f; do
+        cp "$f" "$OUT/screenshots/$(echo "${f#$REPORTS/}" | tr '/ ' '__')" 2>/dev/null || true
+      done
 
       # Maestro reports (JUnit xml, attempt-N/artifacts with screenshots, maestro.log, commands json)
       cp -R "$(Build.SourcesDirectory)/.maestro/suite/reports/ios/." "$OUT/reports/" 2>/dev/null || true
