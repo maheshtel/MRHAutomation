@@ -89,6 +89,11 @@ jobs:
       EMU="$ANDROID_HOME/emulator/emulator"
       API="${{ parameters.apiLevel }}"
 
+      # Ensure adb server starts cleanly to prevent port 5037 binding drops
+      export PATH="$ANDROID_HOME/platform-tools:$PATH"
+      adb kill-server || true
+      adb start-server
+
       yes | "$SDK/sdkmanager" --licenses > /dev/null || true
       "$SDK/sdkmanager" --install "emulator" "platform-tools" > /dev/null
 
@@ -251,10 +256,10 @@ jobs:
       if ($testPath -match '[\*\?]') {
         $glob = $testPath -replace '\\', '/'
         $rx = '^' + ([regex]::Escape($glob) `
-                -replace '\\\*\\\*/', '(.*/)?' `
-                -replace '\\\*\\\*',  '.*' `
-                -replace '\\\*',      '[^/]*' `
-                -replace '\\\?',      '[^/]') + '$'
+            -replace '\\\*\\\*/', '(.*/)?' `
+            -replace '\\\*\\\*',  '.*' `
+            -replace '\\\*',      '[^/]*' `
+            -replace '\\\?',      '[^/]') + '$'
 
         $files = Get-ChildItem -Path $suite -Recurse -File |
           ForEach-Object {
