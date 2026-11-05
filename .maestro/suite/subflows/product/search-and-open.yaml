@@ -15,7 +15,7 @@ appId: com.mrh.mobilestore
 # "<name>, <price or price range>".
 
 - tapOn:
-    id: 'home-top-banner-\d+-search-bar-input'
+    id: 'home-top-banner-\d+-search(-bar-input)?'
     label: Open search
 - inputText: ${PRODUCT}
 - tapOn:

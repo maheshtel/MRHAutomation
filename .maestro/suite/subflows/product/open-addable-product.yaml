@@ -54,12 +54,22 @@ appId: com.mrh.mobilestore
             # shown first with a "Loading home" placeholder (slow on a cold start).
             - extendedWaitUntil:
                 visible:
-                  id: 'home-top-banner-\d+-search-bar-input'
+                  id: 'home-top-banner-\d+-search(-bar-input)?'
                 timeout: 90000
                 label: Wait for the Home search bar
             - tapOn:
-                id: 'home-top-banner-\d+-search-bar-input'
+                id: 'home-top-banner-\d+-search(-bar-input)?'
                 label: Open search
+            - extendedWaitUntil:
+                visible:
+                  id: search-bar-input
+                timeout: 60000
+                optional: true
+                label: Wait for the Search screen
+            - tapOn:
+                id: search-bar-input
+                optional: true
+                label: Focus the search field
       - runFlow:
           when:
             true: ${output.searchOpen}
