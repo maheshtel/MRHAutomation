@@ -238,31 +238,77 @@ tags:
     label: Wishlist contains the captured product
 
 # ── Move it to the cart ──────────────────────────────────────────────────────
-# The list holds only this test's product, so the id alone is enough. Not matching on
-# the "Add <name> to cart" label also avoids a failure if the label text differs per platform.
-- extendedWaitUntil:
-    visible:
-      id: 'wishlist-product-\d+-cart'
-    timeout: 60000
-    label: Wait for the product's cart button
-- tapOn:
-    id: 'wishlist-product-\d+-cart'
-    label: Tap the product's cart button
-- extendedWaitUntil:
-    visible:
-      id: wishlist-quick-add-sheet
-    timeout: 30000
-- tapOn:
-    id: wishlist-quick-add-sheet-form-submit
-    label: Tap Add to Cart in Quick Add
-- extendedWaitUntil:
-    notVisible:
-      id: wishlist-quick-add-sheet
-    timeout: 45000
+# Android: Quick Add from the wishlist card (the card's cart button is exposed there).
+# iOS: the wishlist card is ONE accessible element and its cart button is hidden from
+# Maestro (UI tree: only 'wishlist-product-<id>' exists, with no '-cart' child), so Quick
+# Add cannot be tapped. As a stand-in, open the product from the wishlist and add it from
+# its product page. DELETE the iOS branch once the app exposes 'wishlist-product-N-cart'
+# on iOS (set accessible={false} on the card container) and use the Android steps for both.
+- runFlow:
+    when:
+      platform: Android
+    label: Quick Add from the wishlist (Android)
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'wishlist-product-\d+-cart'
+          timeout: 60000
+          label: Wait for the product's cart button
+      - tapOn:
+          id: 'wishlist-product-\d+-cart'
+          label: Tap the product's cart button
+      - extendedWaitUntil:
+          visible:
+            id: wishlist-quick-add-sheet
+          timeout: 30000
+      - tapOn:
+          id: wishlist-quick-add-sheet-form-submit
+          label: Tap Add to Cart in Quick Add
+      - extendedWaitUntil:
+          notVisible:
+            id: wishlist-quick-add-sheet
+          timeout: 45000
+
+- runFlow:
+    when:
+      platform: iOS
+    label: Add to cart from the product page (iOS)
+    commands:
+      - tapOn:
+          id: 'wishlist-product-\d+'
+          text: "${output.productNameRe}, .*"
+          label: Open the product from the wishlist
+      - extendedWaitUntil:
+          visible:
+            id: product-detail-screen
+          timeout: 60000
+          label: Wait for the product page
+      - scrollUntilVisible:
+          element:
+            id: product-detail-actions-submit
+          direction: DOWN
+          centerElement: true
+          timeout: 45000
+          label: Scroll to Add to Cart
+      # Opened fresh from the wishlist, an option may need picking first (same as the
+      # product search flow): the first selectable option gives the default price.
+      - tapOn:
+          id: 'product-detail-actions-option-.*'
+          enabled: true
+          index: 0
+          optional: true
+          label: Select the first available option
+      - tapOn:
+          id: product-detail-actions-submit
+          enabled: true
+          label: Tap Add to Cart
+      # Let the app finish adding before leaving the page.
+      - waitForAnimationToEnd:
+          timeout: 5000
 
 # ── Check the same product is in the cart ────────────────────────────────────
-# The product's old rows were deleted above, so its only row is the one Quick
-# Add just created: captured price (Quick Add uses the default option), qty 1.
+# The product's old rows were deleted above, so its only row is the one just added
+# (Quick Add on Android, the product page on iOS): captured price, qty 1.
 - runFlow:
     file: ../../subflows/nav/go-to-tab.yaml
     env:

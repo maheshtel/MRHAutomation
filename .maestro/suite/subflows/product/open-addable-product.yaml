@@ -63,7 +63,9 @@ appId: com.mrh.mobilestore
             - extendedWaitUntil:
                 visible:
                   id: search-bar-input
-                timeout: 20000
+                # iOS does not expose this id (the wait always ran out its 20s there),
+                # and the field is already focused. Android finds it at once.
+                timeout: 5000
                 optional: true
                 label: Wait for the Search screen
             - tapOn:
@@ -84,6 +86,7 @@ appId: com.mrh.mobilestore
           timeout: 25000
           optional: true
           label: "Look for ${output.productName} in the results"
+      - takeScreenshot: search-results-candidate-${output.pickIndex}
 
       # ── Found: open it and check Add to Cart ───────────────────────────────
       - runFlow:
