@@ -23,10 +23,14 @@ parameters:
     displayName: 'Simulator iOS version'
     type: string
     default: '26.1'
-  - name: captureHomeUi
-    displayName: 'Diagnostics: capture a screenshot + UI tree of the Home screen before the tests'
+  - name: blockQuic
+    displayName: 'Block QUIC (UDP 443) so the simulator falls back to normal HTTPS (fixes "No internet connection")'
     type: boolean
     default: true
+  - name: captureHomeUi
+    displayName: 'Diagnostics: capture a screenshot + UI tree of the Home screen before the tests (adds several minutes)'
+    type: boolean
+    default: false
   - name: xcodeVersion
     displayName: 'Xcode version to select (needs to match the iOS runtime)'
     type: string
@@ -42,10 +46,15 @@ variables:
 jobs:
 - job: maestro_ios
   displayName: Maestro - iOS
-  timeoutInMinutes: 60
+  timeoutInMinutes: 60          # 60 is the maximum for Microsoft-hosted agents on a free/private project
+  cancelTimeoutInMinutes: 10    # after a timeout, the 'always' steps (reports, artifacts) still get 10 minutes
   pool:
     vmImage: macOS-15
   steps:
+  - script: |
+      echo "##vso[task.setvariable variable=JOB_START_EPOCH]$(date +%s)"
+    displayName: Start job clock
+
   - checkout: self
     fetchDepth: 1              # shallow clone = faster checkout
     clean: false
@@ -232,6 +241,31 @@ jobs:
     env:
       SIM_UDID: $(SIM_UDID)
 
+  # ---- Network check + QUIC workaround.
+  # On this hosted Mac the app's requests (api.mountainroseherbs.com, and the reachability
+  # probe https://clients3.google.com/generate_204) all go over QUIC (HTTP/3, UDP 443), and the
+  # simulator logs showed them hanging until they were cancelled or timed out (-1001), so the app
+  # showed "No internet connection" and sign-in failed. Rejecting outgoing UDP 443 makes the
+  # connection fall back to normal HTTPS over TCP straight away.
+  - script: |
+      set -uo pipefail
+      echo "--- Host network check (TCP) ---"
+      for u in https://clients3.google.com/generate_204 https://api.mountainroseherbs.com/; do
+        curl -sS -m 20 -o /dev/null -w "$u -> HTTP %{http_code} in %{time_total}s\n" "$u" || echo "$u -> FAILED"
+      done
+      if [ "$BLOCK_QUIC" = "true" ]; then
+        echo "--- Rejecting outgoing QUIC (UDP 443) ---"
+        echo "block return out quick proto udp from any to any port 443" | sudo pfctl -ef - 2>&1 || echo "pfctl failed - continuing without the QUIC block"
+        sudo pfctl -sr 2>&1 | head -5 || true
+      else
+        echo "blockQuic=false - leaving QUIC enabled"
+      fi
+    displayName: Check network and block QUIC
+    continueOnError: true
+    timeoutInMinutes: 5
+    env:
+      BLOCK_QUIC: ${{ parameters.blockQuic }}
+
   # ---- Diagnostics (set captureHomeUi=false once the Home search bar problem is solved).
   # Starts the app the same way the tests do, then saves a screenshot and the UI element tree,
   # so the real accessibility ids / labels on iOS can be compared with the ones the flows use.
@@ -255,7 +289,7 @@ jobs:
             timeout: 180000
         - extendedWaitUntil:
             visible:
-              id: 'home-top-banner-\d+-search-bar-input'
+              id: 'home-top-banner-\d+-search(-bar-input)?'
             timeout: 60000
             optional: true
         - waitForAnimationToEnd:
@@ -284,6 +318,9 @@ jobs:
   # ---- Run the tests. run.ps1 expands the glob itself and runs every matched file in ONE
   # Maestro session (one driver startup, one report), so the glob is passed straight through.
   - pwsh: |
+      $elapsedMin = [math]::Round(([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [int64]$env:JOB_START_EPOCH) / 60, 1)
+      Write-Host "Job time used before the tests: $elapsedMin min. The job limit is 60 min and the test step limit is 40 min."
+
       $targetPath = $env:TEST_PATH
       if ([string]::IsNullOrWhiteSpace($targetPath) -or $targetPath -eq 'tests') {
         $targetPath = 'tests/**/*.yaml'
@@ -297,8 +334,9 @@ jobs:
         -Path $targetPath
       exit $LASTEXITCODE
     displayName: Run Maestro tests
-    timeoutInMinutes: 35
+    timeoutInMinutes: 40
     env:
+      JOB_START_EPOCH: $(JOB_START_EPOCH)
       TEST_PATH: ${{ parameters.testPath }}
       SIM_UDID: $(SIM_UDID)
       RETRIES: ${{ parameters.retries }}
@@ -354,7 +392,7 @@ jobs:
       exit 0
     displayName: Collect failure artifacts
     condition: not(succeeded())     # failed or cancelled (e.g. job timeout)
-    timeoutInMinutes: 10
+    timeoutInMinutes: 6
     env:
       SIM_UDID: $(SIM_UDID)
       FAILURE_DIR: $(FAILURE_DIR)

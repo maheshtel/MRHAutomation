@@ -11,6 +11,9 @@ appId: com.mrh.mobilestore
 # a section moving up or down the list doesn't break them. They are checked in
 # the current CMS order, though: if marketing reorders Home, reorder the steps.
 #
+# Timeouts are generous on purpose: a swipe takes several seconds on the hosted iOS
+# simulator and Android emulator, and a found element ends the wait at once.
+#
 # Each section is checked for its content, not its header, because while data
 # loads the header can render above a skeleton. Recently Viewed and Purchase
 # Again depend on the account's history, so they're not checked here.
@@ -18,7 +21,7 @@ appId: com.mrh.mobilestore
 - extendedWaitUntil:
     visible:
       id: 'home-top-banner-\d+'
-    timeout: 20000
+    timeout: 60000
     label: Top banner is shown
 - assertVisible:
     id: 'home-top-banner-\d+-search(-bar-input)?'
@@ -28,64 +31,66 @@ appId: com.mrh.mobilestore
     element:
       id: 'home-announcement-banner-\d+-\d+-title'
     direction: DOWN
-    timeout: 10000
+    timeout: 45000
     label: Announcement banner is shown
 
 - scrollUntilVisible:
     element:
       id: 'home-product-title-\d+'
     direction: DOWN
-    timeout: 10000
+    timeout: 45000
     label: Product section header is shown
 - extendedWaitUntil:
     visible:
       id: 'home-product-card-\d+'
-    timeout: 20000
+    timeout: 60000
     label: Product section shows product cards (not a loading skeleton)
 
 - scrollUntilVisible:
     element:
-      id: 'home-whats-new-\d+-card-.+'
+      # Android exposes the cards (home-whats-new-N-card-...); on iOS the UI tree showed
+      # home-whats-new-N-flatlist and home-whats-new-N-slide-... for this carousel.
+      id: 'home-whats-new-\d+-(card|slide)-.+'
     direction: DOWN
-    timeout: 15000
+    timeout: 45000
     label: What's New carousel shows a card
 
 - scrollUntilVisible:
     element:
       id: 'home-category-title-\d+'
     direction: DOWN
-    timeout: 15000
+    timeout: 45000
     label: Shop by Category header is shown
 - extendedWaitUntil:
     visible:
       id: 'home-category-\d+'
-    timeout: 15000
+    timeout: 45000
     label: Shop by Category shows category cards
 
 - scrollUntilVisible:
     element:
       id: 'home-subcategory-title-\d+'
     direction: DOWN
-    timeout: 15000
+    timeout: 45000
     label: Shop by Function header is shown
 - extendedWaitUntil:
     visible:
       id: 'home-subcategory-\d+'
-    timeout: 15000
+    timeout: 45000
     label: Shop by Function shows category cards
 
 - scrollUntilVisible:
     element:
       id: 'home-image-banner-\d+'
     direction: DOWN
-    timeout: 20000
+    timeout: 60000
     label: Image banner is shown
 
 - scrollUntilVisible:
     element:
       id: home-brand-footer
     direction: DOWN
-    timeout: 20000
+    timeout: 60000
     label: Brand footer is shown (Home rendered to the end)
 
 - assertVisible:

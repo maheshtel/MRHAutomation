@@ -63,7 +63,7 @@ appId: com.mrh.mobilestore
             - extendedWaitUntil:
                 visible:
                   id: search-bar-input
-                timeout: 60000
+                timeout: 20000
                 optional: true
                 label: Wait for the Search screen
             - tapOn:
