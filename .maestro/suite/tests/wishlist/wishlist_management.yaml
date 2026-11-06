@@ -238,9 +238,15 @@ tags:
     label: Wishlist contains the captured product
 
 # ── Move it to the cart ──────────────────────────────────────────────────────
+# The list holds only this test's product, so the id alone is enough. Not matching on
+# the "Add <name> to cart" label also avoids a failure if the label text differs per platform.
+- extendedWaitUntil:
+    visible:
+      id: 'wishlist-product-\d+-cart'
+    timeout: 60000
+    label: Wait for the product's cart button
 - tapOn:
     id: 'wishlist-product-\d+-cart'
-    text: "Add ${output.productNameRe} to cart"
     label: Tap the product's cart button
 - extendedWaitUntil:
     visible:
