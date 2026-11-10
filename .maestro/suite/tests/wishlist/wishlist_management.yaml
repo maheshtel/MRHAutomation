@@ -372,6 +372,17 @@ tags:
       id: 'cart-item-[0-9a-f-]+'
       text: "${output.productNameRe}, quantity 1, price ${output.priceRe}, .*"
     direction: DOWN
+    # centerElement is required, not cosmetic. Without it Maestro only accepts a
+    # row that is 100% on screen. A newly added row sits near the END of the
+    # cart; when the list hits bottom it stops with that row a point or two above
+    # the screen top (under the header), e.g. Bounds(y=-1, h=202) = 99.5%
+    # visible. The list can't move further, so every swipe gives 99.5% and the
+    # step spins until the timeout (Azure iOS simulator, 2026-11-10 run
+    # 20261110-104133). With centerElement Maestro (2.11) accepts the row once
+    # it is >10% visible and its centre has passed 70% of the screen height
+    # (relative to screen size, so the same on every device). Same setting as
+    # the cleanup lookup in delete-product-rows.yaml.
+    centerElement: true
     # The account's cart is long (~40 rows, about 4 per screen) and the default
     # scroll speed needs more than 30s to reach the end, so go faster and allow
     # a full pass.
