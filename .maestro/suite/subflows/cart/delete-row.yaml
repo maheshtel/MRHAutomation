@@ -1,6 +1,7 @@
 appId: com.mrh.mobilestore
 ---
-# Deletes one cart row by tapping its trash icon.
+# Deletes one cart row by tapping its trash icon. Works on Android and iOS,
+# emulator/simulator and real devices, at any screen size.
 #
 # Usage:
 #   - runFlow:
@@ -8,23 +9,83 @@ appId: com.mrh.mobilestore
 #       env:
 #         ROW: '.*'     # regex for the row's accessibility label; '.*' = first row
 #
+# Precondition: on the Cart tab (cart-list on screen).
 # Row labels look like "Mango Butter Organic, quantity 1, price $38.25, total $38.25".
 # There is no confirmation dialog. Callers wait for the result they expect
 # (e.g. cart-empty, or the row being gone).
 #
-# KNOWN WORKAROUND (the only point: tap in the suite; keep it here):
-# the installed APK doesn't expose the trash button in the view hierarchy, so
-# the row is tapped where the trash icon sits (95% across, 48% down). A row that
-# is taller than usual (e.g. with an "unavailable" message) can make this miss.
-# The app source already gives the button testID cart-item-{id}-delete; once
-# the APK is rebuilt from it, replace this with:
-#   - tapOn:
-#       id: 'cart-(item|gift-certificate)-[0-9a-f-]+-delete'
+# Two ways to reach the trash icon, picked by what the UI tree exposes:
+#
+#   1. The row's own button 'cart-item-<id>-delete' (searched only INSIDE the
+#      matching row, so it can't hit another row's button). Android exposes it.
+#
+#   2. iOS: DSCartItem is ONE accessible element, so iOS hides everything inside
+#      it, including the trash button (same as the wishlist card's cart button).
+#      There the row is tapped where the trash icon sits: 95% across, 48% down
+#      the row's bounds. That is only safe while the row is fully inside the
+#      list. A row scrolled half under the screen header still counts as
+#      "visible" (iOS reports its full frame), and the tap at 48% lands on the
+#      header instead. That's how the wishlist cleanup failed on the Azure
+#      simulator: the same header point (367,112) tapped 20 times, the row never
+#      deleted, then "No row of the product is left in the cart" failed.
+#      So the row must start below the top edge of cart-list (Maestro's `below`
+#      compares top edges; a fully visible first row starts 2pt below the list
+#      top because of the list's top padding). If it doesn't, the list is dragged
+#      down slowly first (no fling) to bring the row clear of the header.
 
-- tapOn:
-    id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
-    text: ${ROW}
-    index: 0
-    point: "95%,48%"
-    waitToSettleTimeoutMs: 3000
-    label: Tap the row's trash icon
+- evalScript: ${output.cartRowDeleteTapped = false}
+
+# ── 1. The row's own trash button, when the UI tree exposes it ───────────────
+- runFlow:
+    when:
+      visible:
+        id: 'cart-(item|gift-certificate)-[0-9a-f-]+-delete'
+        childOf:
+          id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+          text: ${ROW}
+    label: Tap the row's trash button
+    commands:
+      - tapOn:
+          id: 'cart-(item|gift-certificate)-[0-9a-f-]+-delete'
+          childOf:
+            id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+            text: ${ROW}
+          waitToSettleTimeoutMs: 3000
+          label: Tap the row's trash button
+      - evalScript: ${output.cartRowDeleteTapped = true}
+
+# ── 2. Trash button not exposed (iOS): tap its position inside the row ───────
+# Row hidden partly under the header -> drag the list down to bring it clear.
+# Slow (1.5s) so it doesn't fling, along the left edge so it can't tap a row.
+- runFlow:
+    when:
+      true: ${!output.cartRowDeleteTapped}
+      notVisible:
+        id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+        text: ${ROW}
+        below:
+          id: cart-list
+    label: Row is under the header - drag it clear
+    commands:
+      - swipe:
+          start: "3%,40%"
+          end: "3%,65%"
+          duration: 1500
+          label: Drag the list down
+      - waitForAnimationToEnd:
+          timeout: 3000
+
+- runFlow:
+    when:
+      true: ${!output.cartRowDeleteTapped}
+    label: Tap the trash icon position inside the row
+    commands:
+      - tapOn:
+          id: 'cart-(item|gift-certificate)-[0-9a-f-]+'
+          text: ${ROW}
+          below:
+            id: cart-list
+          index: 0
+          point: "95%,48%"
+          waitToSettleTimeoutMs: 3000
+          label: Tap the row's trash icon

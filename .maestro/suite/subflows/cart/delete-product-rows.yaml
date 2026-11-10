@@ -17,8 +17,9 @@ appId: com.mrh.mobilestore
 #
 # The Cart tab keeps its scroll position, so this scrolls to the top first and
 # then scans down once. Each match is scrolled to the middle of the screen
-# before deleting: delete-row taps a fixed point inside the row, which misses on
-# a row half hidden under the header or the tab bar.
+# before deleting. The fast scroll can still overshoot and leave the row half
+# under the header; delete-row.yaml detects that and drags it clear before
+# tapping (see there), so a pass can no longer tap the header 20 times.
 
 - runFlow:
     file: ../nav/go-to-tab.yaml
