@@ -30,6 +30,17 @@ parameters:
     displayName: 'Emulator screen size (smaller = much faster rendering on the 1-vCPU hosted emulator; empty = device default)'
     type: string
     default: '720x1280'
+  # Emulator speed check (before the tests and before each retry): stop with a clear
+  # error when the emulator is far too slow, instead of an hour of cascading timeouts.
+  # The measured values are printed on every run, so these can be tuned. 0 = off.
+  - name: maxUiDumpSeconds
+    displayName: 'Speed check: max seconds for a UI tree dump (what Maestro does every step; 0 = off)'
+    type: number
+    default: 20
+  - name: maxColdStartSeconds
+    displayName: 'Speed check: max seconds for the app cold start (0 = off)'
+    type: number
+    default: 60
   - name: shardCount
     displayName: 'Parallel jobs (test files are split across them; each job boots its own emulator)'
     type: number
@@ -250,6 +261,21 @@ jobs:
       echo "App process is running"
     displayName: App launch check (warm-up)
 
+  # ---- Fail fast when the emulator is too slow to run UI tests ----
+  # On a starved hosted Mac (1 vCPU emulator) every test fails one after another with
+  # timeouts / "Device server died", and the job burns its whole hour. This measures the
+  # app cold start and a UI tree dump (rechecking once after 60s) and stops the job here
+  # with a clear error if they are far over the limits. See the script for details.
+  - script: bash .maestro/suite/ci/emulator-speed-check.sh
+    displayName: Emulator speed check
+    timeoutInMinutes: 12
+    env:
+      ADB: $(ANDROID_SDK_DIR)/platform-tools/adb
+      DEVICE: emulator-5554
+      MAX_UI_DUMP_SECONDS: ${{ parameters.maxUiDumpSeconds }}
+      MAX_COLD_START_SECONDS: ${{ parameters.maxColdStartSeconds }}
+      REPORT_FILE: $(Build.ArtifactStagingDirectory)/maestro-artifacts/emulator-speed.txt
+
   # The warm-up step above already installed the APK on this fresh emulator, so run.ps1
   # does NOT reinstall it (-ReinstallApp used to install it a second time, which also threw
   # away the warm-up's compiled code). -Apk stays as a fallback if the app is missing.
@@ -257,11 +283,15 @@ jobs:
   - pwsh: |
       $suite = (Resolve-Path (Join-Path $env:BUILD_SOURCESDIRECTORY '.maestro/suite')).Path
 
+      # PreRetryCheck: the emulator speed check runs again before each retry; if the
+      # emulator has become too slow, the retries are skipped instead of re-running
+      # every failed test into the same timeouts.
       $common = @{
-        Platform = 'android'
-        Device   = 'emulator-5554'
-        Apk      = $env:APK_FILE
-        Retries  = [int]$env:RETRIES
+        Platform      = 'android'
+        Device        = 'emulator-5554'
+        Apk           = $env:APK_FILE
+        Retries       = [int]$env:RETRIES
+        PreRetryCheck = (Join-Path $suite 'ci/emulator-speed-check.sh')
       }
 
       $testPath = $env:TEST_PATH
@@ -351,6 +381,12 @@ jobs:
       FAIL_FAST: ${{ parameters.failFast }}
       SHARD_POS: $(System.JobPositionInPhase)
       SHARD_TOTAL: $(System.TotalJobsInPhase)
+      # Settings for the emulator speed check run before each retry
+      ADB: $(ANDROID_SDK_DIR)/platform-tools/adb
+      DEVICE: emulator-5554
+      MAX_UI_DUMP_SECONDS: ${{ parameters.maxUiDumpSeconds }}
+      MAX_COLD_START_SECONDS: ${{ parameters.maxColdStartSeconds }}
+      REPORT_FILE: $(Build.ArtifactStagingDirectory)/maestro-artifacts/emulator-speed.txt
 
   # ---- Reporting (always runs) ----
   - task: PublishTestResults@2

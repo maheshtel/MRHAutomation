@@ -23,8 +23,26 @@ appId: com.mrh.mobilestore
     id: email-input
 - inputText: ${TEST_EMAIL}
 
-- tapOn:
-    id: password-input
+# Move to the password field with the keyboard's Next key, not by tapping it.
+# The email field has returnKeyType="next" and its onSubmitEditing focuses the
+# password field (src/screens/LoginScreen.tsx), so this works whether or not
+# the field is on screen. Tapping it by id failed on the Azure Android emulator
+# (720x1280, run 20261110-143332): with the keyboard open (plus its "Suggest
+# contact names?" strip) the password field was hidden and not in the UI tree
+# at all -> "Element not found: password-input" in every test that signs in.
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 3000
+# Where the field IS on screen (large phones, iOS), tap it as well. That's the
+# old behaviour and makes sure it has focus before typing.
+- runFlow:
+    when:
+      visible:
+        id: password-input
+    label: Password field on screen - tap it
+    commands:
+      - tapOn:
+          id: password-input
 - inputText: ${TEST_PASSWORD}
 
 # Submit with the keyboard's Done key: the password field's onSubmitEditing

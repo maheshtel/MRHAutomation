@@ -93,7 +93,13 @@ param(
     # Reuse the Maestro driver already on the device instead of uninstalling and
     # reinstalling it at the start of every attempt (maestro --no-reinstall-driver).
     # Use when the driver was just installed, e.g. by the CI warm-up step.
-    [switch]$NoReinstallDriver
+    [switch]$NoReinstallDriver,
+
+    # A script run before every retry attempt. If it fails (non-zero exit), the
+    # remaining retries are skipped: e.g. ci/emulator-speed-check.sh, so failed
+    # tests aren't re-run on an emulator too slow to pass them. A .sh file runs
+    # with bash; anything else is invoked as a command.
+    [string]$PreRetryCheck = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -244,6 +250,16 @@ for ($attempt = 2; $attempt -le $Retries + 1; $attempt++) {
     $failedFiles = @($results | Where-Object { $_.Failed -and $_.File -and (Test-Path $_.File) } |
         ForEach-Object { $_.File } | Sort-Object -Unique)
     if ($failedFiles.Count -eq 0) { break }
+
+    if ($PreRetryCheck) {
+        Write-Host ''
+        Write-Host "Health check   | before attempt ${attempt}: $PreRetryCheck"
+        if ($PreRetryCheck -like '*.sh') { & bash $PreRetryCheck } else { & $PreRetryCheck }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Health check   | FAILED - skipping the remaining retries (the results below are from the attempts so far)"
+            break
+        }
+    }
 
     Write-Host ''
     Write-Host "Retry          | attempt $attempt of $($Retries + 1): re-running $($failedFiles.Count) failed test(s)"
