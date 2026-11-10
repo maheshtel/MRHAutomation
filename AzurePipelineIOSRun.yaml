@@ -27,6 +27,10 @@ parameters:
     displayName: 'Block QUIC (UDP 443) so the simulator falls back to normal HTTPS (fixes "No internet connection")'
     type: boolean
     default: true
+  - name: blockApplePush
+    displayName: 'Block Apple Push (APNs) traffic - stops the simulator apsd reconnect loop that saturates the CPU'
+    type: boolean
+    default: true
   - name: captureHomeUi
     displayName: 'Diagnostics: capture a screenshot + UI tree of the Home screen before the tests (adds several minutes)'
     type: boolean
@@ -40,6 +44,15 @@ variables:
   MAESTRO_VERSION: '2.11.0'
   MAESTRO_CLI_NO_ANALYTICS: '1'
   MAESTRO_DRIVER_STARTUP_TIMEOUT: '600000'   # 10 min (was 3 min): the hosted Mac is slow
+  # "Agent environment resources ... Unable to get CPU info, exception: The operation was
+  # canceled" is the agent's DEBUG resource monitor: every few seconds it runs a CPU probe,
+  # which times out when the machine is saturated. It is a symptom (CPU starvation), not an
+  # error, and it only prints with system diagnostics on. Keep debug off for normal runs (set
+  # to 'true' only when you need agent diagnostics) and switch the monitor off, so it neither
+  # spams the log nor spawns extra probe processes on an already busy Mac.
+  system.debug: 'false'
+  AZP_ENABLE_RESOURCE_MONITOR_DEBUG_OUTPUT: 'false'
+  AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS: 'false'
   APP_WORK_DIR: '$(Agent.TempDirectory)/ios-app'
   FAILURE_DIR: '$(Build.ArtifactStagingDirectory)/failure-artifacts'
 
@@ -77,6 +90,64 @@ jobs:
     displayName: Select Xcode and show agent info
     env:
       XCODE_VERSION: ${{ parameters.xcodeVersion }}
+
+  # ---- Free up CPU and fix networking BEFORE the simulator boots.
+  #
+  # 1) Spotlight: a fresh hosted Mac indexes the checkout, the unzipped .app and the
+  #    simulator data (mds_stores), competing with the simulator for the 3 vCPUs.
+  #
+  # 2) Apple Push (APNs): on this hosted Mac the simulator's push daemon (apsd) cannot get
+  #    its certificate from the host ("SimulatorServicesErrorDomain Code=100 Connection
+  #    invalid"). Its TLS connection to Apple (port 5223) succeeds, the cert refresh fails, it
+  #    disconnects (reason 14) and reconnects immediately - ~5 times a second, all run long.
+  #    Because the connect itself succeeds, apsd never counts a failure and never backs off.
+  #    In one 10-minute test it wrote 708,000 of the 1.26 million simulator log lines (the
+  #    226 MB device-simulator.log). That loop, plus Maestro streaming its log, is what
+  #    starves the CPU (slow taps, slow hierarchy, and the agent's CPU probe timing out).
+  #    Rejecting APNs traffic makes the connect itself fail, so apsd backs off and goes quiet.
+  #    The tests do not use push. APNs uses TCP 5223, falling back to TCP 443, on Apple's
+  #    17.0.0.0/8 network. Set blockApplePush=false to turn this off.
+  #
+  # 3) QUIC: the app's requests (api.mountainroseherbs.com, and the reachability probe
+  #    https://clients3.google.com/generate_204) went over QUIC (HTTP/3, UDP 443) and hung
+  #    until cancelled/timed out (-1001), so the app showed "No internet connection" and
+  #    sign-in failed. Rejecting UDP 443 makes them fall back to HTTPS over TCP at once.
+  #
+  # All rules are loaded in one go (pfctl -f replaces the main ruleset).
+  - script: |
+      set -uo pipefail
+      sudo mdutil -a -i off >/dev/null 2>&1 && echo "Spotlight indexing disabled" || echo "mdutil failed - continuing"
+
+      echo "--- Host network check (TCP) ---"
+      for u in https://clients3.google.com/generate_204 https://api.mountainroseherbs.com/; do
+        curl -sS -m 15 -o /dev/null -w "$u -> HTTP %{http_code} in %{time_total}s\n" "$u" || echo "$u -> FAILED"
+      done
+
+      RULES=""
+      if [ "$BLOCK_QUIC" = "true" ]; then
+        RULES+="block return out quick proto udp from any to any port 443"$'\n'
+      fi
+      if [ "$BLOCK_APPLE_PUSH" = "true" ]; then
+        RULES+="block return out quick proto tcp from any to any port 5223"$'\n'
+        RULES+="block return out quick proto tcp from any to 17.0.0.0/8 port 443"$'\n'
+      fi
+      if [ -n "$RULES" ]; then
+        echo "--- Loading packet filter rules ---"
+        printf '%s' "$RULES"
+        printf '%s' "$RULES" | sudo pfctl -ef - 2>&1 || echo "pfctl failed - continuing without the rules"
+        sudo pfctl -sr 2>&1 | head -5 || true
+      else
+        echo "No packet filter rules requested"
+      fi
+
+      echo "--- Top CPU consumers before the simulator boots ---"
+      ps -Ao pcpu,pmem,comm -r | head -n 8 || true
+    displayName: Free CPU and set network rules (Spotlight, APNs, QUIC)
+    continueOnError: true
+    timeoutInMinutes: 5
+    env:
+      BLOCK_QUIC: ${{ parameters.blockQuic }}
+      BLOCK_APPLE_PUSH: ${{ parameters.blockApplePush }}
 
   # ---- Pick the simulator and START booting it now; it boots while the next steps run
   - script: |
@@ -212,59 +283,47 @@ jobs:
 
       xcrun simctl install "$SIM_UDID" "$APP_PATH"
       echo "App installed on $SIM_UDID"
+
+      # Health check for the APNs block above: how chatty is apsd now? Before the block it
+      # logged ~1,200 lines a minute (a reconnect every ~0.2 s). A few dozen means it backed off.
+      APSD_LINES="$(xcrun simctl spawn "$SIM_UDID" log show --last 1m --style compact --predicate 'process == "apsd"' 2>/dev/null | wc -l | tr -d ' ')"
+      echo "apsd log lines in the last minute: ${APSD_LINES:-unknown}"
+      if [ "${APSD_LINES:-0}" -gt 600 ] 2>/dev/null; then
+        echo "##vso[task.logissue type=warning]apsd is still looping (${APSD_LINES} lines/min) - the simulator CPU will be saturated; check the packet filter step"
+      fi
+      echo "--- Top CPU consumers after boot ---"
+      ps -Ao pcpu,pmem,comm -r | head -n 8 || true
     displayName: Wait for simulator and install app
     timeoutInMinutes: 15
     env:
       SIM_UDID: $(SIM_UDID)
       APP_PATH: $(APP_PATH)
 
-  # ---- Warm up the Maestro iOS driver once so the real run finds it ready
+  # ---- Warm up the Maestro iOS driver once, so the real run finds it installed and the
+  # simulator's XCTest caches are hot. `maestro hierarchy` installs and starts the XCTest
+  # runner and reads the screen WITHOUT launching an app (the old Safari launch added a slow
+  # first-launch of Safari for nothing). The test run then reuses this runner
+  # (--no-reinstall-driver) instead of uninstalling and reinstalling it.
+  # (The QUIC/APNs network rules now run before the simulator boots - see above.)
   - script: |
       set -uo pipefail
       export PATH="$HOME/.maestro/bin:$PATH"
-      mkdir -p "$(Agent.TempDirectory)/warmup"
-      printf 'appId: com.apple.mobilesafari\n---\n- launchApp\n' > "$(Agent.TempDirectory)/warmup/warmup.yaml"
-
       for i in 1 2; do
         echo "Driver warm-up attempt $i"
-        if maestro --device "$SIM_UDID" test "$(Agent.TempDirectory)/warmup/warmup.yaml"; then
+        # 7 minute cap per attempt, so a hung driver start can't eat the job
+        if perl -e 'alarm shift; exec @ARGV' 420 maestro --device "$SIM_UDID" hierarchy > /dev/null; then
           echo "Driver is ready"
           exit 0
         fi
         xcrun simctl terminate "$SIM_UDID" dev.mobile.maestro-driver-iosUITests.xctrunner || true
-        sleep 15
+        sleep 10
       done
       echo "##vso[task.logissue type=error]Maestro iOS driver did not start after 2 attempts"
       exit 1
     displayName: Warm up Maestro iOS driver
-    timeoutInMinutes: 25
+    timeoutInMinutes: 16
     env:
       SIM_UDID: $(SIM_UDID)
-
-  # ---- Network check + QUIC workaround.
-  # On this hosted Mac the app's requests (api.mountainroseherbs.com, and the reachability
-  # probe https://clients3.google.com/generate_204) all go over QUIC (HTTP/3, UDP 443), and the
-  # simulator logs showed them hanging until they were cancelled or timed out (-1001), so the app
-  # showed "No internet connection" and sign-in failed. Rejecting outgoing UDP 443 makes the
-  # connection fall back to normal HTTPS over TCP straight away.
-  - script: |
-      set -uo pipefail
-      echo "--- Host network check (TCP) ---"
-      for u in https://clients3.google.com/generate_204 https://api.mountainroseherbs.com/; do
-        curl -sS -m 20 -o /dev/null -w "$u -> HTTP %{http_code} in %{time_total}s\n" "$u" || echo "$u -> FAILED"
-      done
-      if [ "$BLOCK_QUIC" = "true" ]; then
-        echo "--- Rejecting outgoing QUIC (UDP 443) ---"
-        echo "block return out quick proto udp from any to any port 443" | sudo pfctl -ef - 2>&1 || echo "pfctl failed - continuing without the QUIC block"
-        sudo pfctl -sr 2>&1 | head -5 || true
-      else
-        echo "blockQuic=false - leaving QUIC enabled"
-      fi
-    displayName: Check network and block QUIC
-    continueOnError: true
-    timeoutInMinutes: 5
-    env:
-      BLOCK_QUIC: ${{ parameters.blockQuic }}
 
   # ---- Diagnostics (set captureHomeUi=false once the Home search bar problem is solved).
   # Starts the app the same way the tests do, then saves a screenshot and the UI element tree,
@@ -327,10 +386,16 @@ jobs:
       }
       Write-Host "Test path: $targetPath"
 
+      Write-Host "Top CPU consumers before the tests:"
+      ps -Ao pcpu,pmem,comm -r | Select-Object -First 8 | ForEach-Object { Write-Host "  $_" }
+
+      # -NoReinstallDriver: reuse the XCTest runner the warm-up step installed instead of
+      # uninstalling + reinstalling it at the start of every attempt.
       ./.maestro/suite/run.ps1 `
         -Platform ios `
         -Device $env:SIM_UDID `
         -Retries ([int]$env:RETRIES) `
+        -NoReinstallDriver `
         -Path $targetPath
       exit $LASTEXITCODE
     displayName: Run Maestro tests
@@ -347,7 +412,9 @@ jobs:
     inputs:
       testResultsFormat: JUnit
       searchFolder: '$(Build.SourcesDirectory)/.maestro/suite/reports/ios'
-      testResultsFiles: '**/report.xml'
+      # Only the final per-run report (<stamp>/report.xml). '**/report.xml' also picked up
+      # every attempt-N/report.xml, so each test was published two or more times.
+      testResultsFiles: '*/report.xml'
       testRunTitle: 'Maestro iOS'
 
   # ---- Collect everything useful when the run fails
@@ -390,8 +457,16 @@ jobs:
         echo "No simulator UDID available (failure happened before the simulator was selected)"
       fi
 
+      # Device logs are huge plain text (the last run had a 226 MB simulator log per test).
+      # gzip compresses them ~10x, so the upload and your download are much faster.
+      find "$OUT" -type f -name '*.log' -size +5M -exec gzip -1 {} + 2>/dev/null || true
+
+      echo "Top CPU consumers at the end of the run:"
+      ps -Ao pcpu,pmem,comm -r | head -n 10 | tee "$OUT/simulator/top-cpu.txt" || true
+
       echo "Collected files:"
       find "$OUT" -type f | head -n 100
+      du -sh "$OUT" || true
       exit 0
     displayName: Collect failure artifacts
     condition: not(succeeded())     # failed or cancelled (e.g. job timeout)

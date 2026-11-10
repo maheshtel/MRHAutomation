@@ -34,15 +34,26 @@ parameters:
     displayName: 'Parallel jobs (test files are split across them; each job boots its own emulator)'
     type: number
     default: 1
+  # false (default) = all test files run in ONE Maestro session: one driver install/start
+  # for the whole run. true = one Maestro session PER FILE so the run can stop at the first
+  # failure; every file then pays a new Maestro JVM start + driver start (slower overall).
   - name: failFast
-    displayName: 'Stop at the first failing test file (faster feedback)'
+    displayName: 'Stop at the first failing test file (runs files one by one - slower when tests pass)'
     type: boolean
-    default: true
+    default: false
 
 variables:
   MAESTRO_VERSION: '2.11.0'
   MAESTRO_CLI_NO_ANALYTICS: '1'
   MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+  # "Agent environment resources ... Unable to get CPU info, exception: The operation was
+  # canceled" is the agent's DEBUG resource monitor: its CPU probe times out because the
+  # emulator saturates the hosted Mac's CPUs. It is a symptom, not an error, and only prints
+  # with system diagnostics on. Keep debug off for normal runs (set 'true' only when you need
+  # agent diagnostics) and switch the monitor off so it stops spawning probes on a busy Mac.
+  system.debug: 'false'
+  AZP_ENABLE_RESOURCE_MONITOR_DEBUG_OUTPUT: 'false'
+  AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS: 'false'
   APK_FILE: '$(Agent.TempDirectory)/app.apk'
   ANDROID_SDK_DIR: '/Users/runner/Library/Android/sdk'
   MAESTRO_DIR: '/Users/runner/.maestro'
@@ -89,13 +100,22 @@ jobs:
       EMU="$ANDROID_HOME/emulator/emulator"
       API="${{ parameters.apiLevel }}"
 
+      # Spotlight indexing (mds_stores) on a fresh hosted Mac competes with the emulator
+      # for the few vCPUs; the job never needs it.
+      sudo mdutil -a -i off >/dev/null 2>&1 && echo "Spotlight indexing disabled" || true
+
       # Ensure adb server starts cleanly to prevent port 5037 binding drops
       export PATH="$ANDROID_HOME/platform-tools:$PATH"
       adb kill-server || true
       adb start-server
 
       yes | "$SDK/sdkmanager" --licenses > /dev/null || true
-      "$SDK/sdkmanager" --install "emulator" "platform-tools" > /dev/null
+      # The hosted image already ships the emulator and platform-tools. Re-installing them
+      # every run downloads ~300 MB BEFORE the emulator can start booting (the boot is the
+      # critical path), so only install what is missing.
+      [ -x "$EMU" ] || "$SDK/sdkmanager" --install "emulator" > /dev/null
+      [ -x "$ANDROID_HOME/platform-tools/adb" ] || "$SDK/sdkmanager" --install "platform-tools" > /dev/null
+      echo "Emulator: $("$EMU" -version 2>/dev/null | head -n 1)"
 
       # 'default' = light AOSP image (fastest). Use google_apis only if the app needs Google Play services.
       IMAGE="system-images;android-${API};${{ parameters.imageVariant }};x86_64"
@@ -230,17 +250,18 @@ jobs:
       echo "App process is running"
     displayName: App launch check (warm-up)
 
-  # run.ps1 installs the APK (-Apk/-ReinstallApp) and runs the tests.
+  # The warm-up step above already installed the APK on this fresh emulator, so run.ps1
+  # does NOT reinstall it (-ReinstallApp used to install it a second time, which also threw
+  # away the warm-up's compiled code). -Apk stays as a fallback if the app is missing.
   # A glob such as tests/**/*.yaml is expanded here, so no yaml file is missed.
   - pwsh: |
       $suite = (Resolve-Path (Join-Path $env:BUILD_SOURCESDIRECTORY '.maestro/suite')).Path
 
       $common = @{
-        Platform     = 'android'
-        Device       = 'emulator-5554'
-        Apk          = $env:APK_FILE
-        ReinstallApp = $true
-        Retries      = [int]$env:RETRIES
+        Platform = 'android'
+        Device   = 'emulator-5554'
+        Apk      = $env:APK_FILE
+        Retries  = [int]$env:RETRIES
       }
 
       $testPath = $env:TEST_PATH
@@ -289,16 +310,26 @@ jobs:
         $files | ForEach-Object { Write-Host "  $_" }
         if (@($files).Count -eq 0) { Write-Host "Nothing to run in this shard."; exit 0 }
 
+        # Default: every file of this shard in ONE Maestro session (one driver start).
+        if (-not $failFast) {
+          ./.maestro/suite/run.ps1 @common -Path @($files)
+          exit $LASTEXITCODE
+        }
+
+        # failFast: one session per file. The driver is installed by the first file's run;
+        # later files reuse it (-NoReinstallDriver) instead of reinstalling both driver APKs.
         $failed = 0
+        $first = $true
         foreach ($f in $files) {
           Write-Host "=== Running $f ==="
-          ./.maestro/suite/run.ps1 @common -Path $f
+          if ($first) { ./.maestro/suite/run.ps1 @common -Path $f }
+          else { ./.maestro/suite/run.ps1 @common -Path $f -NoReinstallDriver }
+          $first = $false
           if ($LASTEXITCODE -ne 0) {
             $failed++
-            if ($failFast) { Write-Host "Fail-fast enabled, stopping."; break }
+            Write-Host "Fail-fast enabled, stopping."
+            break
           }
-          # Reinstall the app only before the first test
-          $common.ReinstallApp = $false
         }
 
         if ($failed -gt 0) {
@@ -328,23 +359,34 @@ jobs:
     inputs:
       testResultsFormat: JUnit
       searchFolder: '$(Build.SourcesDirectory)/.maestro/suite/reports/android'
-      testResultsFiles: '**/report.xml'
+      # Only the final per-run report (<stamp>/report.xml). '**/report.xml' also picked up
+      # every attempt-N/report.xml, so each test was published two or more times.
+      testResultsFiles: '*/report.xml'
       testRunTitle: 'Maestro Android API ${{ parameters.apiLevel }} - shard $(System.JobPositionInPhase)'
 
   # Only collect artifacts that exist, and only when something failed, to save upload time
+  # (this used to run and upload on every successful run too).
   - script: |
       STAGE="$(Build.ArtifactStagingDirectory)/maestro-artifacts"
       mkdir -p "$STAGE"
       SHOTS="$(Build.SourcesDirectory)/.maestro/suite/screenshots"
       [ -d "$SHOTS" ] && cp -R "$SHOTS" "$STAGE/screenshots" || true
+      # Per-attempt Maestro artifacts (failure screenshots, UI trees, maestro.log, logcat)
+      REPORTS="$(Build.SourcesDirectory)/.maestro/suite/reports/android"
+      [ -d "$REPORTS" ] && cp -R "$REPORTS" "$STAGE/reports" || true
       [ -d "$HOME/.maestro/tests" ] && cp -R "$HOME/.maestro/tests" "$STAGE/maestro-logs" || true
       cp "$(Agent.TempDirectory)/emulator.log" "$STAGE/" 2>/dev/null || true
+      # Big text logs compress ~10x: faster upload and download
+      find "$STAGE" -type f \( -name '*.log' -o -name '*.txt' \) -size +5M -exec gzip -1 {} + 2>/dev/null || true
+      echo "Top CPU consumers at the end of the run:"
+      ps -Ao pcpu,pmem,comm -r | head -n 10 | tee "$STAGE/top-cpu.txt" || true
+      du -sh "$STAGE" || true
     displayName: Collect failure artifacts
-    condition: always()
+    condition: not(succeeded())
 
   - task: PublishPipelineArtifact@1
     displayName: Upload failure artifacts
-    condition: always()
+    condition: not(succeeded())
     continueOnError: true
     inputs:
       targetPath: '$(Build.ArtifactStagingDirectory)/maestro-artifacts'

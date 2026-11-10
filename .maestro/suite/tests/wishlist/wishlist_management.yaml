@@ -232,28 +232,40 @@ tags:
       id: wishlist-detail-header-title
       text: ${output.data.wishlist.name}
     timeout: 45000
+# The card's accessibility label is "[badge, ]<name>, <stars>, <reviews>, <price>",
+# so an optional badge prefix (e.g. "New, ") is allowed before the name.
 - assertVisible:
     id: 'wishlist-product-\d+'
-    text: "${output.productNameRe}, .*"
+    text: "(.*, )?${output.productNameRe}, .*"
     label: Wishlist contains the captured product
 
 # ── Move it to the cart ──────────────────────────────────────────────────────
-# Android: Quick Add from the wishlist card (the card's cart button is exposed there).
-# iOS: the wishlist card is ONE accessible element and its cart button is hidden from
-# Maestro (UI tree: only 'wishlist-product-<id>' exists, with no '-cart' child), so Quick
-# Add cannot be tapped. As a stand-in, open the product from the wishlist and add it from
-# its product page. DELETE the iOS branch once the app exposes 'wishlist-product-N-cart'
-# on iOS (set accessible={false} on the card container) and use the Android steps for both.
+# Decided by what the UI tree exposes, NOT by platform:
+#   - Quick Add button 'wishlist-product-<id>-cart' exposed -> use Quick Add.
+#     (Android: always. UiAutomator sees children of an accessible card.)
+#   - Not exposed -> open the product from the wishlist and add it from its page.
+#     (iOS: DSProductCard is a single accessible Pressable, and the grid overlay
+#     sits inside an accessibilityElementsHidden image block, so XCUITest never
+#     sees the cart button. Waiting for it can only time out - this is what
+#     failed in Azure.)
+# When the app exposes the button on iOS, iOS switches to Quick Add by itself.
+- evalScript: ${output.addedFromWishlist = false}
+
+# Short grace period for the overlay to render (Android finds it at once; on
+# iOS this simply runs out, so keep it short).
+- extendedWaitUntil:
+    visible:
+      id: 'wishlist-product-\d+-cart'
+    timeout: 8000
+    optional: true
+    label: Look for the Quick Add (cart) button on the card
+
 - runFlow:
     when:
-      platform: Android
-    label: Quick Add from the wishlist (Android)
+      visible:
+        id: 'wishlist-product-\d+-cart'
+    label: Quick Add from the wishlist card
     commands:
-      - extendedWaitUntil:
-          visible:
-            id: 'wishlist-product-\d+-cart'
-          timeout: 60000
-          label: Wait for the product's cart button
       - tapOn:
           id: 'wishlist-product-\d+-cart'
           label: Tap the product's cart button
@@ -261,6 +273,12 @@ tags:
           visible:
             id: wishlist-quick-add-sheet
           timeout: 30000
+      - extendedWaitUntil:
+          visible:
+            id: wishlist-quick-add-sheet-form-submit
+            enabled: true
+          timeout: 30000
+          label: Wait for Add to Cart in Quick Add to be enabled
       - tapOn:
           id: wishlist-quick-add-sheet-form-submit
           label: Tap Add to Cart in Quick Add
@@ -268,15 +286,16 @@ tags:
           notVisible:
             id: wishlist-quick-add-sheet
           timeout: 45000
+      - evalScript: ${output.addedFromWishlist = true}
 
 - runFlow:
     when:
-      platform: iOS
-    label: Add to cart from the product page (iOS)
+      true: ${!output.addedFromWishlist}
+    label: Quick Add not exposed - add to cart from the product page
     commands:
       - tapOn:
           id: 'wishlist-product-\d+'
-          text: "${output.productNameRe}, .*"
+          text: "(.*, )?${output.productNameRe}, .*"
           label: Open the product from the wishlist
       - extendedWaitUntil:
           visible:
@@ -290,21 +309,43 @@ tags:
           centerElement: true
           timeout: 45000
           label: Scroll to Add to Cart
-      # Opened fresh from the wishlist, an option may need picking first (same as the
-      # product search flow): the first selectable option gives the default price.
-      - tapOn:
-          id: 'product-detail-actions-option-.*'
-          enabled: true
-          index: 0
-          optional: true
-          label: Select the first available option
+      # Same rule as open-addable-product.yaml: pick an option ONLY if Add to
+      # Cart is disabled. Tapping one unconditionally can switch away from the
+      # default option and change the price captured earlier, which then fails
+      # the cart price check.
+      - runFlow:
+          when:
+            visible:
+              id: product-detail-actions-submit
+              enabled: false
+          label: Add to Cart disabled - pick the first available option
+          commands:
+            - tapOn:
+                id: 'product-detail-actions-option-.*'
+                enabled: true
+                index: 0
+                optional: true
+                label: Select the first available option
       - tapOn:
           id: product-detail-actions-submit
           enabled: true
           label: Tap Add to Cart
-      # Let the app finish adding before leaving the page.
-      - waitForAnimationToEnd:
-          timeout: 5000
+      # Wait for the add to actually finish instead of a blind pause: the
+      # cartService toast ("success: 1 item added to your cart") is the signal;
+      # it is short-lived, so it's optional and backed by the button check
+      # (Add to Cart stays disabled while the request is in flight).
+      - extendedWaitUntil:
+          visible:
+            text: '.*added to your cart.*'
+          timeout: 30000
+          optional: true
+          label: Wait for the "added to your cart" toast
+      - extendedWaitUntil:
+          visible:
+            id: product-detail-actions-submit
+            enabled: true
+          timeout: 30000
+          label: Add to Cart request finished
 
 # ── Check the same product is in the cart ────────────────────────────────────
 # The product's old rows were deleted above, so its only row is the one just added

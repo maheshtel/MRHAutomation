@@ -48,9 +48,10 @@ param(
     [ValidateSet('android', 'ios')]
     [string]$Platform,
 
-    # Folder or file to run, relative to .maestro/suite. Default: the whole suite
+    # Folder(s), file(s) or glob to run, relative to .maestro/suite. Several are
+    # run in ONE Maestro session (one driver start). Default: the whole suite
     # (tests/** via config.yaml).
-    [string]$Path = '',
+    [string[]]$Path = @(),
 
     [string[]]$Tags = @(),
     [string[]]$ExcludeTags = @(),
@@ -87,7 +88,12 @@ param(
     # never re-run. 0 turns retries off. A test that passes only on a retry is
     # reported as flaky.
     [ValidateRange(0, 5)]
-    [int]$Retries = 2
+    [int]$Retries = 2,
+
+    # Reuse the Maestro driver already on the device instead of uninstalling and
+    # reinstalling it at the start of every attempt (maestro --no-reinstall-driver).
+    # Use when the driver was just installed, e.g. by the CI warm-up step.
+    [switch]$NoReinstallDriver
 )
 
 $ErrorActionPreference = 'Stop'
@@ -100,11 +106,20 @@ if (-not $EnvFile) { $EnvFile = Join-Path $repoRoot '.env.test' }
 
 # ── Target ────────────────────────────────────────────────────────────────────
 # Running the suite folder itself lets Maestro pick up config.yaml (tests/** only).
-$target = if ($Path) { Join-Path $suiteDir $Path } else { $suiteDir }
-if (-not (Test-Path $target)) {
-    Write-Error "Path not found: $target"
-    exit 1
+$Path = @($Path | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+$targets = if ($Path.Count) { @($Path | ForEach-Object { Join-Path $suiteDir $_ }) } else { @($suiteDir) }
+foreach ($t in $targets) {
+    if (-not (Test-Path $t)) {
+        Write-Error "Path not found: $t"
+        exit 1
+    }
 }
+$target = $targets -join ', '
+
+# config.yaml is passed explicitly: Maestro only finds it on its own when the
+# target is the suite folder. With a file list or a glob (what CI runs) it was
+# skipped, so platform.ios.disableAnimations never took effect.
+$configFile = Join-Path $suiteDir 'config.yaml'
 
 # ── Env vars from .env.test, then .env.test.<platform> ────────────────────────
 # Read from the repo root, then from this folder; every file is optional and a
@@ -173,6 +188,8 @@ function Invoke-MaestroAttempt([int]$attempt, [string[]]$targets, [bool]$useTags
     $a += @('test', '--format', 'junit', '--output', $out,
         '--test-output-dir', (Join-Path $dir 'artifacts'),
         '--test-suite-name', "MRH StoreFront ($Platform)")
+    if (Test-Path $configFile) { $a += "--config=$configFile" }
+    if ($NoReinstallDriver) { $a += '--no-reinstall-driver' }
     if ($useTags -and $Tags.Count) { $a += "--include-tags=$($Tags -join ',')" }
     if ($useTags -and $ExcludeTags.Count) { $a += "--exclude-tags=$($ExcludeTags -join ',')" }
     foreach ($key in $envVars.Keys) { $a += @('--env', "$key=$($envVars[$key])") }
@@ -208,7 +225,7 @@ if ($UpdateBaselines) { Write-Host "               | RECORDING baselines into $b
 Write-Host "               | retries per failed test: $Retries | report: $reportFile"
 
 # ── Attempt 1: everything selected ────────────────────────────────────────────
-$attemptReports = @(Invoke-MaestroAttempt 1 @($target) $true)
+$attemptReports = @(Invoke-MaestroAttempt 1 $targets $true)
 $firstCode = $LASTEXITCODE
 $results = @(Get-TestResults $attemptReports[0])
 
