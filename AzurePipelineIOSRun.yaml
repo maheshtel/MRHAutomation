@@ -47,12 +47,12 @@ variables:
   # "Agent environment resources ... Unable to get CPU info, exception: The operation was
   # canceled" is the agent's DEBUG resource monitor: every few seconds it runs a CPU probe,
   # which times out when the machine is saturated. It is a symptom (CPU starvation), not an
-  # error, and it only prints with system diagnostics on. Keep debug off for normal runs (set
-  # to 'true' only when you need agent diagnostics) and switch the monitor off, so it neither
-  # spams the log nor spawns extra probe processes on an already busy Mac.
+  # error, and it only runs with system diagnostics on. Keep debug off for normal runs (set
+  # to 'true' only when you need agent diagnostics), so the monitor neither spams the log nor
+  # spawns extra probe processes on an already busy Mac.
+  # (The agent's AZP_ENABLE_RESOURCE_* knobs are reserved system variables and cannot be set
+  # here - Azure rejects the pipeline with "Cannot override system variable".)
   system.debug: 'false'
-  AZP_ENABLE_RESOURCE_MONITOR_DEBUG_OUTPUT: 'false'
-  AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS: 'false'
   APP_WORK_DIR: '$(Agent.TempDirectory)/ios-app'
   FAILURE_DIR: '$(Build.ArtifactStagingDirectory)/failure-artifacts'
 

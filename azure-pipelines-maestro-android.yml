@@ -50,10 +50,10 @@ variables:
   # canceled" is the agent's DEBUG resource monitor: its CPU probe times out because the
   # emulator saturates the hosted Mac's CPUs. It is a symptom, not an error, and only prints
   # with system diagnostics on. Keep debug off for normal runs (set 'true' only when you need
-  # agent diagnostics) and switch the monitor off so it stops spawning probes on a busy Mac.
+  # agent diagnostics), so the monitor stops spawning probes on a busy Mac.
+  # (The agent's AZP_ENABLE_RESOURCE_* knobs are reserved system variables and cannot be set
+  # here - Azure rejects the pipeline with "Cannot override system variable".)
   system.debug: 'false'
-  AZP_ENABLE_RESOURCE_MONITOR_DEBUG_OUTPUT: 'false'
-  AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS: 'false'
   APK_FILE: '$(Agent.TempDirectory)/app.apk'
   ANDROID_SDK_DIR: '/Users/runner/Library/Android/sdk'
   MAESTRO_DIR: '/Users/runner/.maestro'
