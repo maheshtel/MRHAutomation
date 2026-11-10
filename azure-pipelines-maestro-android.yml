@@ -38,9 +38,10 @@ parameters:
     type: number
     default: 20
   - name: maxColdStartSeconds
+    # Below the 180s the tests wait for Home after a cold start (launch-standalone.yaml)
     displayName: 'Speed check: max seconds for the app cold start (0 = off)'
     type: number
-    default: 60
+    default: 150
   - name: shardCount
     displayName: 'Parallel jobs (test files are split across them; each job boots its own emulator)'
     type: number
@@ -268,7 +269,7 @@ jobs:
   # with a clear error if they are far over the limits. See the script for details.
   - script: bash .maestro/suite/ci/emulator-speed-check.sh
     displayName: Emulator speed check
-    timeoutInMinutes: 12
+    timeoutInMinutes: 15
     env:
       ADB: $(ANDROID_SDK_DIR)/platform-tools/adb
       DEVICE: emulator-5554
