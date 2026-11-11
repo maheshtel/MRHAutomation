@@ -134,10 +134,34 @@ jobs:
       if [ -n "$RULES" ]; then
         echo "--- Loading packet filter rules ---"
         printf '%s' "$RULES"
+        # Kept in a file so the install step can load them again if apsd is still looping
+        printf '%s' "$RULES" > "$(Agent.TempDirectory)/pf-rules.conf"
         printf '%s' "$RULES" | sudo pfctl -ef - 2>&1 || echo "pfctl failed - continuing without the rules"
         sudo pfctl -sr 2>&1 | head -5 || true
+        sudo pfctl -s info 2>&1 | head -2 || true
       else
         echo "No packet filter rules requested"
+      fi
+
+      # Second, independent APNs block at DNS level. The packet filter alone did not hold in
+      # iOS run 20261111-093900: apsd still connected to courier.sandbox.push.apple.com:5223
+      # in ~10 ms and looped all run (65-80k log lines a minute, 64% of the simulator log),
+      # which starved the CPU (60 s to reset the app per test, 37 s to type an email, and a
+      # password typed before the keyboard was ready got lost). The simulator resolves names
+      # through the host, so pointing the courier names at localhost makes every connect fail
+      # at once, and apsd backs off - whether or not pf is active.
+      if [ "$BLOCK_APPLE_PUSH" = "true" ]; then
+        {
+          echo "# maestro-ci: block Apple Push (APNs) for the simulator"
+          for env in sandbox.push.apple.com push.apple.com; do
+            for h in courier courier2; do printf '127.0.0.1 %s.%s\n::1 %s.%s\n' "$h" "$env" "$h" "$env"; done
+            for i in $(seq 0 49); do printf '127.0.0.1 %s-courier.%s\n::1 %s-courier.%s\n' "$i" "$env" "$i" "$env"; done
+          done
+        } | sudo tee -a /etc/hosts > /dev/null && echo "APNs courier host names pointed at localhost in /etc/hosts" \
+          || echo "Could not update /etc/hosts - continuing"
+        sudo dscacheutil -flushcache 2>/dev/null || true
+        sudo killall -HUP mDNSResponder 2>/dev/null || true
+        echo "5-courier.sandbox.push.apple.com resolves to: $(dscacheutil -q host -a name 5-courier.sandbox.push.apple.com | awk '/ip_address/{print $2}' | tr '\n' ' ')"
       fi
 
       echo "--- Top CPU consumers before the simulator boots ---"
@@ -289,7 +313,25 @@ jobs:
       APSD_LINES="$(xcrun simctl spawn "$SIM_UDID" log show --last 1m --style compact --predicate 'process == "apsd"' 2>/dev/null | wc -l | tr -d ' ')"
       echo "apsd log lines in the last minute: ${APSD_LINES:-unknown}"
       if [ "${APSD_LINES:-0}" -gt 600 ] 2>/dev/null; then
-        echo "##vso[task.logissue type=warning]apsd is still looping (${APSD_LINES} lines/min) - the simulator CPU will be saturated; check the packet filter step"
+        echo "##vso[task.logissue type=warning]apsd is still looping (${APSD_LINES} lines/min) - the simulator CPU will be saturated; loading the network rules again"
+        echo "--- Packet filter state ---"
+        sudo pfctl -s info 2>&1 | head -2 || true
+        sudo pfctl -sr 2>&1 | head -5 || true
+        echo "5-courier.sandbox.push.apple.com resolves to: $(dscacheutil -q host -a name 5-courier.sandbox.push.apple.com | awk '/ip_address/{print $2}' | tr '\n' ' ')"
+        if [ -s "$(Agent.TempDirectory)/pf-rules.conf" ]; then
+          sudo pfctl -E -f "$(Agent.TempDirectory)/pf-rules.conf" 2>&1 || true
+        fi
+        sudo dscacheutil -flushcache 2>/dev/null || true
+        sudo killall -HUP mDNSResponder 2>/dev/null || true
+        # Restart the simulator's apsd (a host process under CoreSimulator; the simulator
+        # starts it again) so it meets the block afresh instead of its old connection state.
+        pkill -f 'CoreSimulator.*/apsd' 2>/dev/null || true
+        sleep 60
+        APSD_LINES="$(xcrun simctl spawn "$SIM_UDID" log show --last 1m --style compact --predicate 'process == "apsd"' 2>/dev/null | wc -l | tr -d ' ')"
+        echo "apsd log lines in the last minute after loading the rules again: ${APSD_LINES:-unknown}"
+        if [ "${APSD_LINES:-0}" -gt 600 ] 2>/dev/null; then
+          echo "##vso[task.logissue type=warning]apsd is STILL looping (${APSD_LINES} lines/min) - expect a slow run"
+        fi
       fi
       echo "--- Top CPU consumers after boot ---"
       ps -Ao pcpu,pmem,comm -r | head -n 8 || true

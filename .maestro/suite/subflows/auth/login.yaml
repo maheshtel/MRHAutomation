@@ -57,12 +57,46 @@ appId: com.mrh.mobilestore
 # measured) and the keyboard can cover the button on small screens.
 - pressKey: Enter
 
-# Sign-in is a network round trip; allow for a slow sandbox API. On the hosted
-# iOS simulator this wait ran out at 30s in one run while the same sign-in took
-# about 1s in another, so the limit is generous. A found element ends the wait
-# at once, so a fast run does not wait longer.
-- extendedWaitUntil:
-    visible:
-      id: account-logged-in-content
-    timeout: 90000
-    label: Wait for signed-in Account screen
+# Wait for the signed-in Account screen, and type the password again if the
+# form rejected it.
+#
+# Why: on the hosted iOS simulator (iOS run 20261111-093900) inputText sent the
+# password while the keyboard was still being set up for the secure field: the
+# keyboard took the first key event, the rest went nowhere, the field stayed
+# empty and the app answered "Password is required". The test then waited out
+# the full 90s and failed. Slow Android emulators can drop key events the same way.
+#
+# How: up to 3 tries of 30s each (90s in total, as before, for a slow sandbox
+# API). Try 1 is just the wait. Tries 2 and 3 first check whether the form shows
+# a password error (on iOS the error is part of the field's accessibility label,
+# on Android it's its own text, so the regex is open on both sides). If it does,
+# they type the password again and submit. If not (sign-in is still loading),
+# they keep waiting.
+# A signed-in screen ends the wait at once, so a good run takes no extra time:
+# the checks only run after a try has failed.
+- evalScript: ${output.signInTry = 0}
+- retry:
+    maxRetries: 2
+    commands:
+      - evalScript: ${output.signInTry = output.signInTry + 1}
+      - runFlow:
+          when:
+            true: ${output.signInTry > 1}
+          label: Not signed in yet - check the form for a password error
+          commands:
+            - runFlow:
+                when:
+                  visible:
+                    text: '.*(Password is required|Email or password is incorrect).*'
+                label: The password did not arrive - type it again and submit
+                commands:
+                  - tapOn:
+                      id: password-input
+                  - eraseText: 30
+                  - inputText: ${TEST_PASSWORD}
+                  - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            id: account-logged-in-content
+          timeout: 30000
+          label: Wait for signed-in Account screen
