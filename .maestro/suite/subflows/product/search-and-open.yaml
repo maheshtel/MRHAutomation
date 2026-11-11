@@ -38,7 +38,12 @@ appId: com.mrh.mobilestore
     optional: true
     label: Focus the search field
 
-- inputText: ${PRODUCT}
+# Android: read back and retyped if characters were lost; iOS: plain inputText.
+- runFlow:
+    file: ../common/type-text.yaml
+    env:
+      FIELD_ID: search-bar-input
+      TEXT: ${PRODUCT}
 - extendedWaitUntil:
     visible:
       text: "${PRODUCT}, .*"

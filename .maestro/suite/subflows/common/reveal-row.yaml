@@ -1,0 +1,49 @@
+appId: com.mrh.mobilestore
+---
+# Brings a list row into view with small swipes (about 13% of the screen each).
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/common/reveal-row.yaml   # relative to the calling file
+#       env:
+#         ROW_ID: 'shop-category-tree-category-.*-(toggle|leaf)'   # id regex
+#         ROW_TEXT: Teas                                           # text regex
+#
+# A row that is already on screen is left alone: one quick check, no swipe. So
+# on large screens (and the iOS simulators) nothing moves.
+#
+# Why not scrollUntilVisible: each of its swipes moves the list about 40% of the
+# screen, which pushes the row just above out of view, and checks like
+# "row 5 is below row 4" need both rows on screen. On the 720x1280 Azure
+# emulator the 5th Shop category ("Culinary Essentials") started at y=1265, under
+# the navigation bar, so Android reported it as not visible (run 20261111-071052).
+#
+# The swipe runs from 75% to 62% of the screen height: inside the list on the
+# Shop screen and inside the add-to-wishlist sheet, above the floating tab bar.
+# Ends after at most 5 swipes even if the row never shows up; the caller's next
+# assertion or tap then reports the failure.
+
+- evalScript: ${output.rowShown = false}
+- repeat:
+    while:
+      true: ${!output.rowShown}
+    times: 5
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: ${ROW_ID}
+              text: ${ROW_TEXT}
+          commands:
+            - evalScript: ${output.rowShown = true}
+      - runFlow:
+          when:
+            true: ${!output.rowShown}
+          label: Row "${ROW_TEXT}" not on screen yet - scroll a little
+          commands:
+            - swipe:
+                start: 50%, 75%
+                end: 50%, 62%
+                duration: 800
+            - waitForAnimationToEnd:
+                timeout: 2000

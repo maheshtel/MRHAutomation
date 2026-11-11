@@ -19,16 +19,24 @@ tags:
 
 # ── Setup ────────────────────────────────────────────────────────────────────
 - runScript: ../../data/test-data.js
+# Leftover lists to delete: the test name, or the test name with one character
+# missing (left behind when typing on a slow Android emulator lost a character).
+- runScript:
+    file: ../../scripts/name-variants-re.js
+    env:
+      VALUE: ${output.data.wishlist.name}
+      OUT: wishlistLeftoverRe
 - runFlow: ../../subflows/app/launch.yaml
 - runFlow: ../../subflows/auth/login.yaml
 
 # ── Create the wishlist ──────────────────────────────────────────────────────
 - runFlow: ../../subflows/wishlist/open-my-lists.yaml
 
-# Delete every leftover list with the same name first. My Lists opens at the
-# top; each pass scrolls down from where the last one stopped (lists above have
-# already been checked), so the whole list is scanned top to bottom once. The
-# loop ends on the first pass that reaches the bottom without a match.
+# Delete every leftover list with the same name (or a damaged copy of it, see
+# output.wishlistLeftoverRe above) first. My Lists opens at the top; each pass
+# scrolls down from where the last one stopped (lists above have already been
+# checked), so the whole list is scanned top to bottom once. The loop ends on
+# the first pass that reaches the bottom without a match.
 - evalScript: ${output.leftoverFound = true}
 - repeat:
     while:
@@ -46,7 +54,7 @@ tags:
             - scrollUntilVisible:
                 element:
                   id: 'wishlist-card-\d+'
-                  text: "${output.data.wishlist.name}, .*"
+                  text: "${output.wishlistLeftoverRe}, .*"
                 direction: DOWN
                 timeout: 15000
                 optional: true
@@ -55,17 +63,30 @@ tags:
           when:
             visible:
               id: 'wishlist-card-\d+'
-              text: "${output.data.wishlist.name}, .*"
+              text: "${output.wishlistLeftoverRe}, .*"
           label: Delete the leftover test wishlist
           commands:
             - evalScript: ${output.leftoverFound = true}
-            - swipe:
-                start: 50%, 70%
-                end: 50%, 55%
-                duration: 400
+            # Bring the Delete button up to the middle of the screen, clear of the
+            # floating tab bar. The scan above stops as soon as the card shows, so
+            # it is often at the bottom edge, and a tap there hits the tab bar
+            # instead (Azure Android run 20261111-071052: the tap opened the
+            # Account tab and the delete sheet never appeared). The list has
+            # bottom padding for the tab bar, so a long list can always scroll
+            # it up. A list too short to scroll already sits above the tab bar:
+            # the lookup then simply runs out (optional) and the tap goes ahead.
+            - scrollUntilVisible:
+                element:
+                  id: 'wishlist-card-\d+-delete'
+                  text: "Delete ${output.wishlistLeftoverRe} list"
+                direction: DOWN
+                centerElement: true
+                timeout: 15000
+                optional: true
+                label: Bring the Delete button clear of the tab bar
             - tapOn:
                 id: 'wishlist-card-\d+-delete'
-                text: "Delete ${output.data.wishlist.name} list"
+                text: "Delete ${output.wishlistLeftoverRe} list"
             - extendedWaitUntil:
                 visible:
                   id: wishlist-delete-sheet-confirm
@@ -105,7 +126,12 @@ tags:
     label: Wait for the create sheet
 - tapOn:
     id: wishlist-form-sheet-input
-- inputText: ${output.data.wishlist.name}
+# Android: the typed name is read back and retyped if characters were lost.
+- runFlow:
+    file: ../../subflows/common/type-text.yaml
+    env:
+      FIELD_ID: wishlist-form-sheet-input
+      TEXT: ${output.data.wishlist.name}
 # The keyboard covers the Create List button, so close it first. Android's
 # Back key can also dismiss the sheet, so this only dismisses what is needed:
 #   1. dismiss-keyboard subflow (iOS: Enter key, Android: hideKeyboard).
@@ -140,9 +166,10 @@ tags:
     timeout: 45000
     label: Wait for the create sheet to close
 
-# A new list is added at the top. The leftover scan left us at the bottom, so
-# scroll up until it shows (stopping there, rather than swiping past the top,
-# which would pull-to-refresh the lists).
+# The app sorts lists by name (src/hooks/useWishlist.ts), so the new list can be
+# anywhere above the point where the leftover scan stopped. Scroll up until it
+# shows (stopping there, rather than swiping past the top, which would
+# pull-to-refresh the lists).
 - scrollUntilVisible:
     element:
       id: 'wishlist-card-\d+'
@@ -193,6 +220,14 @@ tags:
     visible:
       id: add-to-wishlist-modal
     timeout: 30000
+# The sheet lists every wishlist sorted by name, so with other lists in the
+# account the test list can be below the sheet's visible area on a short screen.
+# Scroll the sheet a little until it shows (no-op where it is already visible).
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'add-to-wishlist-modal-item-\d+'
+      ROW_TEXT: ${output.data.wishlist.name}
 - tapOn:
     id: 'add-to-wishlist-modal-item-\d+'
     text: ${output.data.wishlist.name}

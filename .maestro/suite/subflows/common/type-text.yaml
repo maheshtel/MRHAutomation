@@ -1,0 +1,54 @@
+appId: com.mrh.mobilestore
+---
+# Types TEXT into the field FIELD_ID, which must already have focus.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../subflows/common/type-text.yaml   # relative to the calling file
+#       env:
+#         FIELD_ID: wishlist-form-sheet-input
+#         TEXT: ${output.data.wishlist.name}
+#
+# iOS: a plain inputText, exactly as before (XCUITest types reliably).
+#
+# Android: inputText can silently drop characters when the device is slow (the
+# app's text field can't keep up with the key events). On the Azure emulator the
+# wishlist name came out as "M Wishlist Test" and "My ishlist Test" (run
+# 20261111-071052), so the test then couldn't find "My Wishlist Test". Here the
+# field is read back after typing; if it doesn't hold exactly TEXT, it's cleared
+# and typed again (up to 3 more times). The cursor is still at the end after
+# typing, so eraseText removes the whole value.
+#
+# Not for password fields: Android doesn't expose their text.
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - inputText: ${TEXT}
+
+- runFlow:
+    when:
+      platform: Android
+    label: Type into ${FIELD_ID} and check it
+    commands:
+      - inputText: ${TEXT}
+      - copyTextFrom:
+          id: ${FIELD_ID}
+          label: Read back ${FIELD_ID}
+      - evalScript: ${output.typedTextOk = (maestro.copiedText == TEXT)}
+      - repeat:
+          while:
+            true: ${!output.typedTextOk}
+          times: 3
+          commands:
+            - eraseText: 100
+            - inputText: ${TEXT}
+            - copyTextFrom:
+                id: ${FIELD_ID}
+                label: Read back ${FIELD_ID} after retyping
+            - evalScript: ${output.typedTextOk = (maestro.copiedText == TEXT)}
+      # Fails only if all 4 tries lost characters.
+      - assertTrue:
+          condition: ${output.typedTextOk}
+          label: ${FIELD_ID} holds the full text

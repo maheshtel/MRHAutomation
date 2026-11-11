@@ -9,6 +9,11 @@ tags:
 #
 # Each name is matched on its row in the active tab's list, and each row must
 # sit below the previous one, so the check covers both the names and their order.
+#
+# Before each check, reveal-row.yaml scrolls the list a little if that row isn't
+# on screen yet. On a short screen (720x1280 Azure emulator, small phones) the
+# 5th row starts below the navigation bar and Android reports it as not visible.
+# Where every row already fits (larger screens, the iOS simulators) nothing moves.
 
 - runScript: ../../data/test-data.js
 - runFlow: ../../subflows/app/launch.yaml
@@ -28,10 +33,20 @@ tags:
       id: shop-category-tree-category
     timeout: 15000
 
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-category-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.categories[0]}
 - assertVisible:
     id: 'shop-category-tree-category-.*-(toggle|leaf)'
     text: ${output.data.shop.categories[0]}
     label: Category 1 of 5 is shown
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-category-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.categories[1]}
 - assertVisible:
     id: 'shop-category-tree-category-.*-(toggle|leaf)'
     text: ${output.data.shop.categories[1]}
@@ -39,6 +54,11 @@ tags:
       id: 'shop-category-tree-category-.*-(toggle|leaf)'
       text: ${output.data.shop.categories[0]}
     label: Category 2 of 5 is shown, below category 1
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-category-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.categories[2]}
 - assertVisible:
     id: 'shop-category-tree-category-.*-(toggle|leaf)'
     text: ${output.data.shop.categories[2]}
@@ -46,6 +66,11 @@ tags:
       id: 'shop-category-tree-category-.*-(toggle|leaf)'
       text: ${output.data.shop.categories[1]}
     label: Category 3 of 5 is shown, below category 2
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-category-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.categories[3]}
 - assertVisible:
     id: 'shop-category-tree-category-.*-(toggle|leaf)'
     text: ${output.data.shop.categories[3]}
@@ -53,6 +78,11 @@ tags:
       id: 'shop-category-tree-category-.*-(toggle|leaf)'
       text: ${output.data.shop.categories[2]}
     label: Category 4 of 5 is shown, below category 3
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-category-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.categories[4]}
 - assertVisible:
     id: 'shop-category-tree-category-.*-(toggle|leaf)'
     text: ${output.data.shop.categories[4]}
@@ -70,10 +100,20 @@ tags:
       id: shop-category-tree-function
     timeout: 15000
 
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-function-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.functions[0]}
 - assertVisible:
     id: 'shop-category-tree-function-.*-(toggle|leaf)'
     text: ${output.data.shop.functions[0]}
     label: Function 1 of 5 is shown
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-function-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.functions[1]}
 - assertVisible:
     id: 'shop-category-tree-function-.*-(toggle|leaf)'
     text: ${output.data.shop.functions[1]}
@@ -81,6 +121,11 @@ tags:
       id: 'shop-category-tree-function-.*-(toggle|leaf)'
       text: ${output.data.shop.functions[0]}
     label: Function 2 of 5 is shown, below function 1
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-function-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.functions[2]}
 - assertVisible:
     id: 'shop-category-tree-function-.*-(toggle|leaf)'
     text: ${output.data.shop.functions[2]}
@@ -88,6 +133,11 @@ tags:
       id: 'shop-category-tree-function-.*-(toggle|leaf)'
       text: ${output.data.shop.functions[1]}
     label: Function 3 of 5 is shown, below function 2
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-function-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.functions[3]}
 - assertVisible:
     id: 'shop-category-tree-function-.*-(toggle|leaf)'
     text: ${output.data.shop.functions[3]}
@@ -95,6 +145,11 @@ tags:
       id: 'shop-category-tree-function-.*-(toggle|leaf)'
       text: ${output.data.shop.functions[2]}
     label: Function 4 of 5 is shown, below function 3
+- runFlow:
+    file: ../../subflows/common/reveal-row.yaml
+    env:
+      ROW_ID: 'shop-category-tree-function-.*-(toggle|leaf)'
+      ROW_TEXT: ${output.data.shop.functions[4]}
 - assertVisible:
     id: 'shop-category-tree-function-.*-(toggle|leaf)'
     text: ${output.data.shop.functions[4]}

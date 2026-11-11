@@ -21,7 +21,13 @@ appId: com.mrh.mobilestore
 
 - tapOn:
     id: email-input
-- inputText: ${TEST_EMAIL}
+# Android: the email is read back and retyped if characters were lost (slow
+# emulators drop key events). iOS: a plain inputText, as before.
+- runFlow:
+    file: ../common/type-text.yaml
+    env:
+      FIELD_ID: email-input
+      TEXT: ${TEST_EMAIL}
 
 # Move to the password field with the keyboard's Next key, not by tapping it.
 # The email field has returnKeyType="next" and its onSubmitEditing focuses the

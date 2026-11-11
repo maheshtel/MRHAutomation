@@ -78,7 +78,12 @@ appId: com.mrh.mobilestore
           label: Previous candidate not found - clear the search text
           commands:
             - eraseText: 100
-      - inputText: ${output.productName}
+      # Android: read back and retyped if characters were lost; iOS: plain inputText.
+      - runFlow:
+          file: ../common/type-text.yaml
+          env:
+            FIELD_ID: search-bar-input
+            TEXT: ${output.productName}
       - evalScript: ${output.searchOpen = true}
       - extendedWaitUntil:
           visible:
