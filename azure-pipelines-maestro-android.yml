@@ -30,6 +30,24 @@ parameters:
     displayName: 'Emulator screen size (smaller = much faster rendering on the 1-vCPU hosted emulator; empty = device default)'
     type: string
     default: '720x1280'
+  # The hosted Mac gives the emulator 1 vCPU. Every frame the app draws (React Native
+  # loading skeletons and other loops keep drawing) costs that vCPU and the host's
+  # software renderer, so a lower display rate frees time for the app and Maestro.
+  - name: emulatorFps
+    displayName: 'Emulator display refresh rate (hw.lcd.vsync; 60 = device default, lower = less CPU)'
+    type: number
+    default: 30
+  # Extra Linux kernel parameters for the emulator's guest. tsc=reliable keeps the CPU's
+  # time-stamp counter as the clock. In a VM inside a VM the kernel tends to mark it
+  # "unstable" and switch to the emulated HPET; every clock read and timer change then
+  # traps out to the emulator, which is very slow (run 2026-11-10 18:22: the guest CPU
+  # was 88% kernel time and its log said "hpet increased min_delta_ns"). The diagnostics
+  # in guest-timers.txt (failure artifacts) show the clock actually in use.
+  # Try 'tsc=reliable hpet=disable' if guest-timers.txt still shows hpet. Empty = none.
+  - name: guestKernelParams
+    displayName: 'Emulator guest kernel parameters (empty = none)'
+    type: string
+    default: 'tsc=reliable'
   # Emulator speed check (before the tests and before each retry): stop with a clear
   # error when the emulator is far too slow, instead of an hour of cascading timeouts.
   # The measured values are printed on every run, so these can be tuned. 0 = off.
@@ -149,6 +167,30 @@ jobs:
         SKIN_ARGS="-skin ${W}x${H}"
         echo "Screen: ${W}x${H} @320dpi"
       fi
+
+      # Less work for the 1 vCPU (Android only; the app and tests use none of these):
+      # - lower display refresh rate (emulatorFps)
+      # - no motion/environment sensors, GPS or audio: their services poll the emulator
+      #   all the time (the sensors HAL alone used ~3% of the guest CPU, all kernel time).
+      #   No accelerometer also means the screen never rotates.
+      # - guest kernel parameters (guestKernelParams), see the parameter's comment
+      AVD_CFG="$HOME/.android/avd/ci.avd/config.ini"
+      sed -i '' -E '/^(hw\.lcd\.vsync|hw\.accelerometer[a-z_]*|hw\.gyroscope|hw\.gps|hw\.audioInput|hw\.audioOutput|hw\.sensors\.[a-z_]+|kernel\.parameters)[ =]/d' "$AVD_CFG"
+      {
+        echo "hw.lcd.vsync=${{ parameters.emulatorFps }}"
+        for K in hw.accelerometer hw.accelerometer_uncalibrated hw.gyroscope hw.gps \
+                 hw.audioInput hw.audioOutput hw.sensors.light hw.sensors.pressure \
+                 hw.sensors.humidity hw.sensors.proximity hw.sensors.magnetic_field \
+                 hw.sensors.magnetic_field_uncalibrated hw.sensors.gyroscope_uncalibrated \
+                 hw.sensors.orientation hw.sensors.temperature hw.sensors.rgbclight \
+                 hw.sensors.heart_rate hw.sensors.wrist_tilt hw.sensors.heading; do
+          echo "$K=no"
+        done
+        KPARAMS='${{ parameters.guestKernelParams }}'
+        if [ -n "$KPARAMS" ]; then echo "kernel.parameters=$KPARAMS"; fi
+      } >> "$AVD_CFG"
+      echo "AVD tuning:"; grep -E '^(hw\.lcd\.vsync|kernel\.parameters)' "$AVD_CFG" | sed 's/^/  /'
+
       "$EMU" -accel-check || true
 
       LOG="$(Agent.TempDirectory)/emulator.log"
@@ -229,7 +271,56 @@ jobs:
       "$ADB" shell settings put global window_animation_scale 0
       "$ADB" shell settings put global transition_animation_scale 0
       "$ADB" shell settings put global animator_duration_scale 0
+
+      # Less background work on the 1 vCPU:
+      # - Bluetooth off: its stack kept crashing and restarting after boot ("Bluetooth
+      #   remote service has died", run 2026-11-10 18:22). The app doesn't use it.
+      # - Only Info and higher log messages: the image logs everything (androidboot.logcat
+      #   =*:V) and every Debug line is a write to the log daemon. Errors, crashes, ANRs
+      #   and the launch times the speed check reads are Info or higher.
+      "$ADB" shell cmd bluetooth_manager disable >/dev/null 2>&1 || true
+      "$ADB" shell settings put global ble_scan_always_enabled 0 || true
+      "$ADB" shell setprop persist.log.tag I || true
+      "$ADB" shell setprop log.tag I || true
       "$ADB" shell input keyevent KEYCODE_HOME
+
+      # Guest timer diagnostics (see the guestKernelParams parameter): which clock and
+      # timer the guest kernel uses, and how often the timers fire. Needs root, which the
+      # 'default' and 'google_apis' images allow; adbd goes back to normal afterwards.
+      DIAG="$(Build.ArtifactStagingDirectory)/maestro-artifacts/guest-timers.txt"
+      mkdir -p "$(dirname "$DIAG")"
+      # adbd restarts on root/unroot: wait (at most 2 min) until it answers and is booted
+      adb_back() {
+        local i=0
+        sleep 3
+        while [ $i -lt 120 ]; do
+          [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && return 0
+          sleep 1; i=$((i + 1))
+        done
+        echo "##vso[task.logissue type=warning]adb did not come back within 2 min after root/unroot"
+      }
+      if "$ADB" root 2>&1 | grep -qiE "restarting|already running as root"; then
+        adb_back
+        "$ADB" shell '
+          echo "kernel cmdline: $(cat /proc/cmdline)"
+          for f in clocksource/clocksource0/current_clocksource clocksource/clocksource0/available_clocksource \
+                   clockevents/clockevent0/current_device clockevents/broadcast/current_device; do
+            echo "$f: $(cat /sys/devices/system/$f 2>&1)"
+          done
+          echo "cpu flags: $(grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -E "^(tsc|constant_tsc|nonstop_tsc|tsc_deadline_timer|arat|tsc_known_freq|x2apic|hypervisor)$" | tr "\n" " ")"
+          echo "--- dmesg (clock and timer lines)"
+          dmesg | grep -iE "clocksource|tsc|hpet|clockevent|apic timer|lapic|unstable|watchdog" | head -40
+          echo "--- /proc/interrupts, 10 s apart"
+          grep -iE "timer|hpet|LOC|CPU0" /proc/interrupts; sleep 10; grep -iE "timer|hpet|LOC|CPU0" /proc/interrupts
+          echo "--- top"
+          top -b -n 1 -m 12
+        ' > "$DIAG" 2>&1 || true
+        "$ADB" unroot >/dev/null 2>&1 || true
+        adb_back
+      else
+        echo "adb root is not available on this image - no guest timer diagnostics" > "$DIAG"
+      fi
+      echo "Guest timers:"; sed -n '1,6p' "$DIAG" | sed 's/^/  /'
 
       sleep 10    # short settle for post-boot background work
       "$ADB" devices
