@@ -123,6 +123,13 @@ jobs:
         curl -sS -m 15 -o /dev/null -w "$u -> HTTP %{http_code} in %{time_total}s\n" "$u" || echo "$u -> FAILED"
       done
 
+      # Azure passes boolean parameters to scripts as "True"/"False". The old comparison
+      # with "true" never matched, so none of the rules below were ever loaded (iOS run
+      # 20261111-112511: apsd still reached Apple on 5223 and the app still used QUIC/h3).
+      BLOCK_QUIC="$(printf '%s' "${BLOCK_QUIC:-}" | tr '[:upper:]' '[:lower:]')"
+      BLOCK_APPLE_PUSH="$(printf '%s' "${BLOCK_APPLE_PUSH:-}" | tr '[:upper:]' '[:lower:]')"
+      echo "blockQuic=$BLOCK_QUIC blockApplePush=$BLOCK_APPLE_PUSH"
+
       RULES=""
       if [ "$BLOCK_QUIC" = "true" ]; then
         RULES+="block return out quick proto udp from any to any port 443"$'\n'
@@ -297,6 +304,8 @@ jobs:
   # ---- By now the simulator has been booting for a few minutes: wait for it, then install
   - script: |
       set -euo pipefail
+      # Azure passes boolean parameters as "True"/"False"
+      BLOCK_APPLE_PUSH="$(printf '%s' "${BLOCK_APPLE_PUSH:-}" | tr '[:upper:]' '[:lower:]')"
       xcrun simctl bootstatus "$SIM_UDID" -b
 
       # Best effort: stop autocorrect / prediction bar / accent pop-ups from changing typed text or covering buttons
@@ -312,25 +321,46 @@ jobs:
       # logged ~1,200 lines a minute (a reconnect every ~0.2 s). A few dozen means it backed off.
       APSD_LINES="$(xcrun simctl spawn "$SIM_UDID" log show --last 1m --style compact --predicate 'process == "apsd"' 2>/dev/null | wc -l | tr -d ' ')"
       echo "apsd log lines in the last minute: ${APSD_LINES:-unknown}"
-      if [ "${APSD_LINES:-0}" -gt 600 ] 2>/dev/null; then
-        echo "##vso[task.logissue type=warning]apsd is still looping (${APSD_LINES} lines/min) - the simulator CPU will be saturated; loading the network rules again"
-        echo "--- Packet filter state ---"
+      # Still looping: stop the simulator's push service itself. Neither network block held
+      # on the hosted Mac in iOS run 20261111-112511 (apsd still resolved Apple's address and
+      # connected on 5223; QUIC got through too), and apsd plus the log processing its
+      # ~70k lines a minute cause (diagnosticd, in the simulator and on the host) used about
+      # 80% CPU. The tests don't use push. The app's notification permission is granted by
+      # Maestro and doesn't need apsd; a push registration just fails, which the app handles.
+      if [ "$BLOCK_APPLE_PUSH" = "true" ] && [ "${APSD_LINES:-0}" -gt 600 ] 2>/dev/null; then
+        echo "##vso[task.logissue type=warning]apsd is looping (${APSD_LINES} lines/min) despite the network blocks - stopping it in the simulator"
+        echo "--- Packet filter state (for diagnosis) ---"
         sudo pfctl -s info 2>&1 | head -2 || true
         sudo pfctl -sr 2>&1 | head -5 || true
-        echo "5-courier.sandbox.push.apple.com resolves to: $(dscacheutil -q host -a name 5-courier.sandbox.push.apple.com | awk '/ip_address/{print $2}' | tr '\n' ' ')"
-        if [ -s "$(Agent.TempDirectory)/pf-rules.conf" ]; then
-          sudo pfctl -E -f "$(Agent.TempDirectory)/pf-rules.conf" 2>&1 || true
+        echo "5-courier.sandbox.push.apple.com resolves on the host to: $(dscacheutil -q host -a name 5-courier.sandbox.push.apple.com | awk '/ip_address/{print $2}' | tr '\n' ' ')"
+
+        # The simulator's apsd runs as a host process from the simulator runtime
+        # (.../RuntimeRoot/System/Library/PrivateFrameworks/ApplePushService.framework/apsd).
+        APSD_PAT='CoreSimulator.*/ApplePushService.framework/apsd'
+        echo "apsd before: $(pgrep -f "$APSD_PAT" | tr '\n' ' ')"
+        # 1) Unload the service from the simulator's launchd (it is not started again).
+        xcrun simctl spawn "$SIM_UDID" launchctl bootout system/com.apple.apsd 2>&1 || true
+        sleep 5
+        # 2) Still there: mark it disabled and kill it.
+        if pgrep -f "$APSD_PAT" > /dev/null; then
+          echo "bootout did not stop apsd - disabling and killing it"
+          xcrun simctl spawn "$SIM_UDID" launchctl disable system/com.apple.apsd 2>&1 || true
+          pkill -9 -f "$APSD_PAT" || true
+          sleep 5
         fi
-        sudo dscacheutil -flushcache 2>/dev/null || true
-        sudo killall -HUP mDNSResponder 2>/dev/null || true
-        # Restart the simulator's apsd (a host process under CoreSimulator; the simulator
-        # starts it again) so it meets the block afresh instead of its old connection state.
-        pkill -f 'CoreSimulator.*/apsd' 2>/dev/null || true
-        sleep 60
-        APSD_LINES="$(xcrun simctl spawn "$SIM_UDID" log show --last 1m --style compact --predicate 'process == "apsd"' 2>/dev/null | wc -l | tr -d ' ')"
-        echo "apsd log lines in the last minute after loading the rules again: ${APSD_LINES:-unknown}"
-        if [ "${APSD_LINES:-0}" -gt 600 ] 2>/dev/null; then
-          echo "##vso[task.logissue type=warning]apsd is STILL looping (${APSD_LINES} lines/min) - expect a slow run"
+        # 3) Still running (launchd started it again): at least silence its logging, which is
+        #    what drives diagnosticd's CPU, and give it the lowest priority.
+        if pgrep -f "$APSD_PAT" > /dev/null; then
+          echo "apsd keeps running - turning its logging off and lowering its priority"
+          xcrun simctl spawn "$SIM_UDID" log config --subsystem com.apple.apsd --mode "level:off" 2>&1 || true
+          for p in $(pgrep -f "$APSD_PAT"); do renice -n 20 -p "$p" > /dev/null 2>&1 || true; done
+        fi
+        echo "apsd after: $(pgrep -f "$APSD_PAT" | tr '\n' ' ')"
+        sleep 30
+        APSD_LINES="$(xcrun simctl spawn "$SIM_UDID" log show --last 30s --style compact --predicate 'process == "apsd"' 2>/dev/null | wc -l | tr -d ' ')"
+        echo "apsd log lines in the last 30s after stopping it: ${APSD_LINES:-unknown}"
+        if [ "${APSD_LINES:-0}" -gt 300 ] 2>/dev/null; then
+          echo "##vso[task.logissue type=warning]apsd is STILL looping (${APSD_LINES} lines/30s) - expect a slow run"
         fi
       fi
       echo "--- Top CPU consumers after boot ---"
@@ -340,6 +370,7 @@ jobs:
     env:
       SIM_UDID: $(SIM_UDID)
       APP_PATH: $(APP_PATH)
+      BLOCK_APPLE_PUSH: ${{ parameters.blockApplePush }}
 
   # ---- Warm up the Maestro iOS driver once, so the real run finds it installed and the
   # simulator's XCTest caches are hot. `maestro hierarchy` installs and starts the XCTest

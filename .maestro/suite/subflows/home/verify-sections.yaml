@@ -18,14 +18,12 @@ appId: com.mrh.mobilestore
 # loads the header can render above a skeleton. Recently Viewed and Purchase
 # Again depend on the account's history, so they're not checked here.
 
-- extendedWaitUntil:
-    visible:
-      id: 'home-top-banner-\d+'
-    timeout: 60000
-    label: Top banner is shown
+# Waits for the top banner's search bar (pulls Home to refresh if it stays on
+# its loading placeholder), then checks the banner itself.
+- runFlow: wait-for-home-content.yaml
 - assertVisible:
-    id: 'home-top-banner-\d+-search(-bar-input)?'
-    label: Search bar is shown in the top banner
+    id: 'home-top-banner-\d+'
+    label: Top banner is shown
 
 - scrollUntilVisible:
     element:

@@ -52,11 +52,8 @@ appId: com.mrh.mobilestore
           commands:
             # The search bar is part of Home's loaded content: home-screen is
             # shown first with a "Loading home" placeholder (slow on a cold start).
-            - extendedWaitUntil:
-                visible:
-                  id: 'home-top-banner-\d+-search(-bar-input)?'
-                timeout: 90000
-                label: Wait for the Home search bar
+            # Pulls Home to refresh it if it stays on the placeholder.
+            - runFlow: ../home/wait-for-home-content.yaml
             - tapOn:
                 id: 'home-top-banner-\d+-search(-bar-input)?'
                 label: Open search

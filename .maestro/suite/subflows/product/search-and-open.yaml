@@ -16,11 +16,8 @@ appId: com.mrh.mobilestore
 
 # The Home search bar is 'home-top-banner-N-search-bar-input' on Android and
 # 'home-top-banner-N-search' ("Open search") on iOS; the id below matches both.
-- extendedWaitUntil:
-    visible:
-      id: 'home-top-banner-\d+-search(-bar-input)?'
-    timeout: 90000
-    label: Wait for the Home search bar
+# Waits for it, and pulls Home to refresh if Home stays on its loading placeholder.
+- runFlow: ../home/wait-for-home-content.yaml
 - tapOn:
     id: 'home-top-banner-\d+-search(-bar-input)?'
     label: Open search

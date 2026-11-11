@@ -1,0 +1,44 @@
+appId: com.mrh.mobilestore
+---
+# Waits until Home shows its real content (the top banner's search bar), and pulls
+# Home down to refresh it if it stays on the "Loading home" placeholder.
+#
+# Precondition: on Home (home-screen shown).
+# Ends on:      Home with its content loaded, the search bar on screen.
+#
+# Why: Home's content comes from one request for the section list. If that request
+# fails, the app does not try again (useResourcePoller has no retry on failure),
+# and after clearState there is no saved copy to fall back on. Home then stays on
+# its loading placeholder (HomeSkeleton: a static search bar with no testID) until
+# something refreshes it: a pull-to-refresh, a double tap on the Home tab, or a
+# sign-in/sign-out. In iOS run 20261111-112511 both cart tests, which use Home as a
+# guest, waited the full 90s on that placeholder and failed. The Wishlist test
+# passed because its sign-in refreshed Home. Pull-to-refresh always fetches again,
+# even while the app's automatic loading is held back.
+#
+# How: up to 3 tries of 40s each. Try 1 only waits; tries 2 and 3 first pull Home
+# down (a swipe from the upper part of Home, which also scrolls back to the top if
+# Home was scrolled). The search bar ends the wait at once, so a Home that loads
+# normally costs nothing extra. Same on iOS and Android: on Android the pull shows
+# the refresh spinner, on iOS the app shows its own refresh overlay.
+- evalScript: ${output.homeTry = 0}
+- retry:
+    maxRetries: 2
+    commands:
+      - evalScript: ${output.homeTry = output.homeTry + 1}
+      - runFlow:
+          when:
+            true: ${output.homeTry > 1}
+          label: Home is still loading - pull down to refresh it
+          commands:
+            - swipe:
+                start: 50%, 30%
+                end: 50%, 80%
+                duration: 800
+      # The search bar is 'home-top-banner-N-search-bar-input' on Android and
+      # 'home-top-banner-N-search' ("Open search") on iOS; the id matches both.
+      - extendedWaitUntil:
+          visible:
+            id: 'home-top-banner-\d+-search(-bar-input)?'
+          timeout: 40000
+          label: Wait for the Home search bar
