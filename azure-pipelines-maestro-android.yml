@@ -237,6 +237,21 @@ jobs:
       while true; do
         ELAPSED=$(( $(date +%s) - START ))
         BOOT="$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+
+        # As soon as the settings service answers (before boot ends): hide error and
+        # "isn't responding" dialogs. Android reads this setting when the configuration
+        # changes, and boot itself makes such changes, so setting it early gives it the
+        # best chance to apply. A hung process then gets restarted by Android instead
+        # of a dialog blocking the screen (run 20261111-082835: "System UI isn't
+        # responding" stayed up and all 6 tests failed). The UI health check at the end
+        # of this step recovers the screen if a dialog shows anyway.
+        if [ -z "${DIALOGS_HIDDEN:-}" ] \
+           && "$ADB" shell service check settings 2>/dev/null | grep -q ': found' \
+           && "$ADB" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1; then
+          DIALOGS_HIDDEN=1
+          echo "  ${ELAPSED}s | error dialogs hidden (hide_error_dialogs=1)"
+        fi
+
         [ "$BOOT" = "1" ] && break
 
         # Fail fast if the emulator process died instead of waiting out the timeout
@@ -324,6 +339,15 @@ jobs:
 
       sleep 10    # short settle for post-boot background work
       "$ADB" devices
+
+      # The UI must be usable before the warm-up and the tests: no "isn't responding"
+      # dialog, and Android must have a screen to read. If not, this recovers it
+      # (close dialogs, restart System UI, restart the framework) or stops the job
+      # with a clear error. See the script. It runs again before the tests and before
+      # each retry, as part of the speed check.
+      ADB="$ADB" DEVICE=emulator-5554 \
+        REPORT_FILE="$(Build.ArtifactStagingDirectory)/maestro-artifacts/emulator-speed.txt" \
+        bash .maestro/suite/ci/emulator-ui-health.sh
     displayName: Wait for emulator ready
 
   # ---- Launch check + warm-up: install, start the app once, capture evidence, stop early if it can't start ----
@@ -360,7 +384,9 @@ jobs:
   # with a clear error if they are far over the limits. See the script for details.
   - script: bash .maestro/suite/ci/emulator-speed-check.sh
     displayName: Emulator speed check
-    timeoutInMinutes: 15
+    # Includes the UI health check, whose last-resort recovery (framework restart)
+    # can take several minutes on the hosted emulator.
+    timeoutInMinutes: 25
     env:
       ADB: $(ANDROID_SDK_DIR)/platform-tools/adb
       DEVICE: emulator-5554

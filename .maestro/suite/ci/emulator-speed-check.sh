@@ -218,6 +218,12 @@ log "Emulator speed check on $DEVICE ($(date '+%Y-%m-%d %H:%M:%S'))"
 if ! limit 30 "$ADB" -s "$DEVICE" shell echo ok 2>/dev/null | grep -q ok; then
   fail "the emulator did not answer adb within 30s"
 fi
+# First make sure the UI is usable at all (recovers a hung System UI); timing a
+# broken UI would say nothing. See emulator-ui-health.sh.
+if ! ADB="$ADB" DEVICE="$DEVICE" REPORT_FILE="$REPORT_FILE" bash "$(dirname "$0")/emulator-ui-health.sh"; then
+  exit 1
+fi
+
 if [ "$MAX_START" = "0" ] && [ "$MAX_DUMP" = "0" ]; then
   log "  Both limits are 0 (off) - nothing to check."
   exit 0
