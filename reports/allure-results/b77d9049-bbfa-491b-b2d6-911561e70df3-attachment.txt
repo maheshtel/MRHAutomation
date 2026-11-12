@@ -1,6 +1,0 @@
-.........Console Logs.........
-
-2026-11-11T10:12:11.115Z INFO  [app] App is ready
-2026-11-11T10:12:11.116Z INFO  [report] STEP Given I am signed in as a customer
-2026-11-11T10:12:15.701Z INFO  [report] STEP And my cart has at least one product
-2026-11-11T10:12:19.119Z INFO  [report] STEP And a test list exists in My Lists

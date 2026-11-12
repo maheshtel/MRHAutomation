@@ -1,8 +1,0 @@
-"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"","47894","Scenario: Change an item's quantity and try an invalid coupon","Feature: Quantity and promotions @regression","2026-11-11","passed","2026-11-11","","","",""
-"","101164","Scenario: A signed-in customer signs out","Feature: Logout @smoke","2026-11-11","passed","2026-11-11","","","",""
-"","396794","Scenario: Create a list, save a product to it, and move it to the cart","Feature: Wishlist management @regression","2026-11-11","passed","2026-11-11","","","",""
-"","55787","Scenario: Add a searched product to the cart and remove it","Feature: Cart management @smoke","2026-11-11","passed","2026-11-11","","","",""
-"","50784","Scenario: A customer signs in and sees the full Home page","Feature: Login @smoke","2026-11-11","passed","2026-11-11","","","",""
-"","35609","Scenario: The Shop menu shows the Category and Function sections","Feature: Shop navigation @smoke","2026-11-11","passed","2026-11-11","","","",""
-"","227627","Scenario: Empty the cart and delete the test list","Feature: Cleanup @regression","2026-11-11","passed","2026-11-11","","","",""

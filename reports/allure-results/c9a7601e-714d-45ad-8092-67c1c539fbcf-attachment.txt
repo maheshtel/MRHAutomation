@@ -1,9 +1,0 @@
-.........Console Logs.........
-
-2026-11-11T10:09:13.252Z INFO  [report] STEP Given I am signed in as a customer
-2026-11-11T10:09:28.362Z INFO  [report] STEP And my cart has at least one product
-2026-11-11T10:09:39.280Z INFO  [search] Opening search result {
-  title: [32m'Lavender Flowers, English Organic'[39m,
-  label: [32m'Lavender Flowers, English Organic, $9.25 – $46.50'[39m
-}
-2026-11-11T10:10:17.442Z INFO  [report] STEP And a test list exists in My Lists

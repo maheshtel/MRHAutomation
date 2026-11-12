@@ -1,0 +1,224 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Appium E2E — iOS simulator on a Microsoft-hosted macOS agent
+#
+# Flow (the simulator boots in the background while everything else runs):
+#   checkout → node → start simulator ┐
+#   deps (cached)                     │ overlap
+#   prebuilt WebDriverAgent (cached)  │
+#   download + unzip .app             ┘
+#   wait for boot → run tests → publish reports
+#
+# Speed: no WebDriverAgent compile (Appium's prebuilt simulator WDA is
+# installed as-is), headless simulator, reduced motion, cached node_modules.
+#
+# One-time setup: variable group `mrh-e2e` (Pipelines › Library) with
+#   TEST_USER_EMAIL     (secret)
+#   TEST_USER_PASSWORD  (secret)
+#   APP_SAS_TOKEN       (secret, optional — only if the blob container is private)
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: ios-e2e-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none # run manually (Pipelines › Run pipeline) or on the schedule below
+pr: none
+
+# schedules:
+#   - cron: '0 3 * * 1-5' # 03:00 UTC, Monday–Friday
+#     displayName: Nightly iOS E2E
+#     branches:
+#       include: [TaskAppiumAutomation]
+#     always: true
+
+parameters:
+  - name: suite
+    displayName: Test suite
+    type: string
+    default: all
+    values: [all, smoke, login, navigation, cart, quantity-promotions, wishlist, cleanup, logout]
+  - name: retries
+    displayName: Retries per failing test
+    type: number
+    default: 2
+  - name: appZipUrl
+    displayName: Simulator .app.zip URL
+    type: string
+    default: https://autoteststoragemahesh.blob.core.windows.net/maheshcontainer/MountainRose.app.zip
+  - name: deviceName
+    displayName: Simulator device
+    type: string
+    default: iPhone 16
+  - name: iosVersion
+    displayName: iOS version, e.g. 18.5 (empty = newest on the agent)
+    type: string
+    default: ' '
+  - name: xcodeVersion
+    displayName: Xcode version, e.g. 16.4 (empty = agent default)
+    type: string
+    default: ' '
+  - name: vmImage
+    displayName: Hosted macOS image
+    type: string
+    default: macOS-latest
+    values: [macOS-latest, macOS-15, macOS-14]
+  - name: usePrebuiltWda
+    displayName: Use Appium's prebuilt WebDriverAgent (skip the xcodebuild compile)
+    type: boolean
+    default: true
+
+variables:
+  - group: mrh-e2e
+  - name: CI
+    value: 'true'
+  - name: NODE_VERSION
+    value: '22.x'
+  - name: WDA_DIR
+    value: $(Pipeline.Workspace)/wda-sim
+
+jobs:
+  - job: ios_e2e
+    displayName: Appium · iOS simulator (${{ parameters.deviceName }})
+    timeoutInMinutes: 90
+    cancelTimeoutInMinutes: 2
+    pool:
+      vmImage: ${{ parameters.vmImage }}
+
+    steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+
+      - bash: |
+          set -euo pipefail
+          rm -f .env # CI reads pipeline variables only, never a stray local .env
+          chmod +x scripts/ci/*.sh
+          mkdir -p logs reports
+        displayName: Prepare agent
+
+      - ${{ if ne(trim(parameters.xcodeVersion), '') }}:
+          - bash: |
+              set -euo pipefail
+              sudo xcode-select -s "/Applications/Xcode_${{ trim(parameters.xcodeVersion) }}.app/Contents/Developer"
+              xcodebuild -version
+            displayName: Select Xcode ${{ trim(parameters.xcodeVersion) }}
+
+      - task: NodeTool@0
+        displayName: Use Node.js $(NODE_VERSION)
+        inputs:
+          versionSpec: $(NODE_VERSION)
+
+      # ── 1. Start the simulator: it boots while the next steps run ──────────
+      - bash: ./scripts/ci/ios-simulator.sh start "${{ parameters.deviceName }}" "${{ trim(parameters.iosVersion) }}"
+        displayName: Start simulator (background boot)
+        timeoutInMinutes: 10
+
+      # ── 2. Dependencies (cached node_modules = no npm install) ─────────────
+      - task: Cache@2
+        displayName: Cache node_modules
+        inputs:
+          key: 'node_modules | "$(Agent.OS)" | "$(Agent.OSArchitecture)" | "$(NODE_VERSION)" | package-lock.json'
+          path: node_modules
+          cacheHitVar: NODE_MODULES_RESTORED
+
+      - bash: npm ci --no-audit --no-fund --prefer-offline
+        displayName: Install test suite (WebdriverIO, Appium, XCUITest)
+        condition: and(succeeded(), ne(variables.NODE_MODULES_RESTORED, 'true'))
+
+      # ── 3. WebDriverAgent (prebuilt; cached per driver version) ────────────
+      - ${{ if eq(parameters.usePrebuiltWda, true) }}:
+          - task: Cache@2
+            displayName: Cache prebuilt WebDriverAgent
+            inputs:
+              # package-lock pins the xcuitest driver, which pins the WDA version.
+              key: 'wda-sim | "$(Agent.OSArchitecture)" | package-lock.json'
+              path: $(WDA_DIR)
+
+          - bash: ./scripts/ci/prebuilt-wda.sh "$(WDA_DIR)"
+            displayName: Fetch prebuilt WebDriverAgent (simulator)
+            timeoutInMinutes: 5
+
+      # ── 4. App under test ─────────────────────────────────────────────────
+      - bash: ./scripts/ci/download-app.sh ios "${{ parameters.appZipUrl }}"
+        displayName: Download + unzip .app
+        env:
+          APP_SAS_TOKEN: $(APP_SAS_TOKEN)
+
+      # ── 5. Device ready ───────────────────────────────────────────────────
+      - bash: ./scripts/ci/ios-simulator.sh wait
+        displayName: Wait for simulator boot + reduce motion
+        timeoutInMinutes: 10
+
+      # ── 6. Tests ──────────────────────────────────────────────────────────
+      - bash: |
+          set -euo pipefail
+          for v in TEST_USER_EMAIL TEST_USER_PASSWORD; do
+            if [[ -z "${!v:-}" || "${!v}" == '$('* ]]; then
+              echo "##vso[task.logissue type=error]$v is not set. Add it to the 'mrh-e2e' variable group."
+              exit 1
+            fi
+          done
+          # Unset when the WDA step was skipped or fell back (Appium then builds WDA).
+          if [[ "${IOS_PREBUILT_WDA_PATH:-}" == '$('* ]]; then unset IOS_PREBUILT_WDA_PATH; fi
+          suite_arg=""
+          if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
+          npx wdio run config/wdio.ios.conf.ts $suite_arg
+        displayName: Run Appium tests (${{ parameters.suite }})
+        timeoutInMinutes: 70
+        env:
+          TEST_USER_EMAIL: $(TEST_USER_EMAIL)
+          TEST_USER_PASSWORD: $(TEST_USER_PASSWORD)
+          IOS_DEVICE_TYPE: simulator
+          IOS_UDID: $(IOS_UDID)
+          IOS_DEVICE_NAME: $(IOS_DEVICE_NAME)
+          IOS_PLATFORM_VERSION: $(IOS_PLATFORM_VERSION)
+          IOS_APP_PATH: $(IOS_APP_PATH)
+          IOS_HEADLESS: 'true'
+          IOS_PREBUILT_WDA_PATH: $(IOS_PREBUILT_WDA_PATH)
+          TEST_RETRIES: ${{ parameters.retries }}
+          WAIT_TIMEOUT: '45000' # shared hosted agents are slower than a dev machine
+          LOG_LEVEL: warn
+
+      # ── 7. Reports (always, so failures are diagnosable) ──────────────────
+      - task: PublishTestResults@2
+        displayName: Publish test results (Tests tab)
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: JUnit
+          testResultsFiles: reports/junit/*.xml
+          mergeTestResults: true
+          failTaskOnFailedTests: false
+          testRunTitle: iOS · ${{ parameters.suite }} · ${{ parameters.deviceName }}
+
+      - bash: |
+          export JAVA_HOME="${JAVA_HOME_17_X64:-${JAVA_HOME_17_arm64:-${JAVA_HOME:-}}}"
+          npx allure generate reports/allure-results --clean --single-file -o reports/allure-report
+        displayName: Build Allure report (single HTML file)
+        condition: succeededOrFailed()
+        continueOnError: true
+
+      - bash: |
+          # Simulator system log of the last 30 min — app crashes show up here.
+          [[ -n "${IOS_UDID:-}" && "$IOS_UDID" != '$('* ]] || exit 0
+          xcrun simctl spawn "$IOS_UDID" log show --last 30m --style compact \
+            --predicate 'process CONTAINS "MountainRose" OR process CONTAINS "WebDriverAgent"' \
+            > logs/simulator.log 2>/dev/null || true
+        displayName: Collect simulator log
+        condition: always()
+        continueOnError: true
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish reports (Allure, JUnit, screenshots, page sources)
+        condition: always()
+        inputs:
+          targetPath: reports
+          artifact: ios-reports-attempt$(System.JobAttempt)
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish logs (Appium, WebdriverIO, simulator)
+        condition: always()
+        inputs:
+          targetPath: logs
+          artifact: ios-logs-attempt$(System.JobAttempt)
+
+      - bash: ./scripts/ci/ios-simulator.sh stop
+        displayName: Shut down simulator
+        condition: always()

@@ -1,0 +1,205 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Appium E2E — Android emulator on a Microsoft-hosted agent
+#
+# Flow (the emulator boots in the background while everything else runs):
+#   checkout → start emulator ┐
+#   node + deps (cached)      │ overlap
+#   download APK              ┘
+#   wait for boot → install APK once → run tests → publish reports
+#
+# One-time setup: variable group `mrh-e2e` (Pipelines › Library) with
+#   TEST_USER_EMAIL     (secret)
+#   TEST_USER_PASSWORD  (secret)
+#   APP_SAS_TOKEN       (secret, optional — only if the blob container is private)
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: android-e2e-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none # run manually (Pipelines › Run pipeline) or on the schedule below
+pr: none
+
+# schedules:
+#   - cron: '0 2 * * 1-5' # 02:00 UTC, Monday–Friday
+#     displayName: Nightly Android E2E
+#     branches:
+#       include: [TaskAppiumAutomation]
+#     always: true
+
+parameters:
+  - name: suite
+    displayName: Test suite
+    type: string
+    default: all
+    values: [all, smoke, login, navigation, cart, quantity-promotions, wishlist, cleanup, logout]
+  - name: retries
+    displayName: Retries per failing test
+    type: number
+    default: 2
+  - name: apkUrl
+    displayName: APK URL
+    type: string
+    default: https://autoteststoragemahesh.blob.core.windows.net/maheshcontainer/mrh.apk
+  - name: apiLevel
+    displayName: Emulator Android API level
+    type: string
+    default: '34'
+  # The emulator needs hardware acceleration (KVM on Linux, Hypervisor.framework
+  # on macOS). Not every hosted image exposes it; the "Start emulator" step
+  # checks within seconds and says so. If no hosted image works, use a scale-set
+  # pool on a nested-virtualization VM size (agentPool).
+  - name: vmImage
+    displayName: Hosted agent image (needs hardware acceleration for the emulator)
+    type: string
+    default: macOS-latest
+    values: [macOS-latest, macOS-15, macOS-14, ubuntu-latest]
+  - name: agentPool
+    displayName: Self-hosted / scale-set pool name (empty = hosted image above)
+    type: string
+    default: ' '
+  - name: installOnce
+    displayName: Install the APK once (faster) instead of on every spec file
+    type: boolean
+    default: true
+
+variables:
+  - group: mrh-e2e
+  - name: CI
+    value: 'true'
+  - name: NODE_VERSION
+    value: '22.x'
+
+jobs:
+  - job: android_e2e
+    displayName: Appium · Android emulator (API ${{ parameters.apiLevel }})
+    timeoutInMinutes: 90
+    cancelTimeoutInMinutes: 2
+    pool:
+      ${{ if eq(trim(parameters.agentPool), '') }}:
+        vmImage: ${{ parameters.vmImage }}
+      ${{ else }}:
+        name: ${{ trim(parameters.agentPool) }}
+
+    steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+
+      # ── 1. Start the emulator first: it boots while the next steps run ─────
+      - bash: |
+          set -euo pipefail
+          rm -f .env # CI reads pipeline variables only, never a stray local .env
+          chmod +x scripts/ci/*.sh
+          mkdir -p logs reports
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          case "$(uname -m)" in arm64|aarch64) abi=arm64-v8a ;; *) abi=x86_64 ;; esac
+          echo "##vso[task.setvariable variable=SYSTEM_IMAGE_DIR]$sdk/system-images/android-${{ parameters.apiLevel }}/google_apis/$abi"
+          echo "##vso[task.setvariable variable=EMULATOR_ABI]$abi"
+        displayName: Prepare agent
+
+      - task: Cache@2
+        displayName: Cache emulator system image
+        inputs:
+          key: 'android-sysimg | "$(Agent.OS)" | "${{ parameters.apiLevel }}" | "$(EMULATOR_ABI)" | v1'
+          path: $(SYSTEM_IMAGE_DIR)
+
+      - bash: ./scripts/ci/android-emulator.sh start ${{ parameters.apiLevel }}
+        displayName: Start emulator (background boot)
+        timeoutInMinutes: 15
+
+      # ── 2. Toolchain + dependencies (cached node_modules = no npm install) ──
+      - task: NodeTool@0
+        displayName: Use Node.js $(NODE_VERSION)
+        inputs:
+          versionSpec: $(NODE_VERSION)
+
+      - task: Cache@2
+        displayName: Cache node_modules
+        inputs:
+          key: 'node_modules | "$(Agent.OS)" | "$(Agent.OSArchitecture)" | "$(NODE_VERSION)" | package-lock.json'
+          path: node_modules
+          cacheHitVar: NODE_MODULES_RESTORED
+
+      - bash: npm ci --no-audit --no-fund --prefer-offline
+        displayName: Install test suite (WebdriverIO, Appium, UiAutomator2)
+        condition: and(succeeded(), ne(variables.NODE_MODULES_RESTORED, 'true'))
+
+      # ── 3. App under test ─────────────────────────────────────────────────
+      - bash: ./scripts/ci/download-app.sh android "${{ parameters.apkUrl }}"
+        displayName: Download APK
+        env:
+          APP_SAS_TOKEN: $(APP_SAS_TOKEN)
+
+      # ── 4. Device ready ───────────────────────────────────────────────────
+      - bash: ./scripts/ci/android-emulator.sh wait
+        displayName: Wait for emulator boot + disable animations
+        timeoutInMinutes: 12
+
+      - ${{ if eq(parameters.installOnce, true) }}:
+          # Installed once here; each spec then starts with `pm clear` (fresh app
+          # data) instead of reinstalling the 130 MB APK per spec file.
+          - bash: ./scripts/ci/android-emulator.sh install "$(ANDROID_APP_PATH)"
+            displayName: Install APK on emulator
+            timeoutInMinutes: 10
+
+      # ── 5. Tests ──────────────────────────────────────────────────────────
+      - bash: |
+          set -euo pipefail
+          for v in TEST_USER_EMAIL TEST_USER_PASSWORD; do
+            if [[ -z "${!v:-}" || "${!v}" == '$('* ]]; then
+              echo "##vso[task.logissue type=error]$v is not set. Add it to the 'mrh-e2e' variable group."
+              exit 1
+            fi
+          done
+          suite_arg=""
+          if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
+          npx wdio run config/wdio.android.conf.ts $suite_arg
+        displayName: Run Appium tests (${{ parameters.suite }})
+        timeoutInMinutes: 60
+        env:
+          TEST_USER_EMAIL: $(TEST_USER_EMAIL)
+          TEST_USER_PASSWORD: $(TEST_USER_PASSWORD)
+          ANDROID_DEVICE_TYPE: emulator
+          ANDROID_UDID: $(ANDROID_UDID)
+          ${{ if eq(parameters.installOnce, true) }}:
+            ANDROID_APP_PATH: '' # already installed — drive it by package name
+          ${{ else }}:
+            ANDROID_APP_PATH: $(ANDROID_APP_PATH)
+          TEST_RETRIES: ${{ parameters.retries }}
+          WAIT_TIMEOUT: '45000' # shared hosted agents are slower than a dev machine
+          LOG_LEVEL: warn
+
+      # ── 6. Reports (always, so failures are diagnosable) ──────────────────
+      - task: PublishTestResults@2
+        displayName: Publish test results (Tests tab)
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: JUnit
+          testResultsFiles: reports/junit/*.xml
+          mergeTestResults: true
+          failTaskOnFailedTests: false
+          testRunTitle: Android · ${{ parameters.suite }} · API ${{ parameters.apiLevel }}
+
+      - bash: |
+          export JAVA_HOME="${JAVA_HOME_17_X64:-${JAVA_HOME_17_arm64:-${JAVA_HOME:-}}}"
+          npx allure generate reports/allure-results --clean --single-file -o reports/allure-report
+        displayName: Build Allure report (single HTML file)
+        condition: succeededOrFailed()
+        continueOnError: true
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish reports (Allure, JUnit, screenshots, page sources)
+        condition: always()
+        inputs:
+          targetPath: reports
+          artifact: android-reports-attempt$(System.JobAttempt)
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish logs (Appium, WebdriverIO, emulator)
+        condition: always()
+        inputs:
+          targetPath: logs
+          artifact: android-logs-attempt$(System.JobAttempt)
+
+      - bash: ./scripts/ci/android-emulator.sh stop
+        displayName: Stop emulator
+        condition: always()

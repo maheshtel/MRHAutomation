@@ -1,7 +1,0 @@
-.........Console Logs.........
-
-2026-11-11T10:06:52.910Z INFO  [app] App is ready
-2026-11-11T10:06:52.910Z INFO  [report] STEP Given I am signed in as a customer
-2026-11-11T10:06:55.056Z INFO  [report] STEP And my cart is empty
-2026-11-11T10:07:00.289Z INFO  [report] STEP And no test lists are left over from earlier runs
-2026-11-11T10:07:09.834Z INFO  [report] STEP When I create a new list named "E2E List mwbyfppq"

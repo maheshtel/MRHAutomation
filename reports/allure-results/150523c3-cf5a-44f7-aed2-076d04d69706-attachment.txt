@@ -1,6 +1,0 @@
-.........Console Logs.........
-
-2026-11-11T10:05:44.969Z INFO  [report] STEP Given I am signed in as a customer
-2026-11-11T10:05:58.663Z INFO  [report] STEP And my cart is empty
-2026-11-11T10:06:00.475Z INFO  [report] STEP And no test lists are left over from earlier runs
-2026-11-11T10:06:13.245Z INFO  [report] STEP When I create a new list named "E2E List mwbye9ah"

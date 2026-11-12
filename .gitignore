@@ -1,0 +1,10 @@
+node_modules/
+reports/
+logs/
+apps/*
+!apps/.gitkeep
+
+# Local credentials and device settings. Commit .env.example only.
+.env
+.env.*
+!.env.example

@@ -1,9 +1,0 @@
-.........Console Logs.........
-
-2026-11-11T16:23:16.328Z INFO  [report] STEP Given the app is open on the Home tab
-2026-11-11T16:23:22.191Z INFO  [report] STEP When I tap the Shop tab
-2026-11-11T16:23:25.314Z INFO  [report] STEP Then the Shop page loads with its title and Quick Shop links
-2026-11-11T16:23:26.030Z INFO  [report] STEP And the "Shop by" section offers Category and Function tabs
-2026-11-11T16:23:28.069Z INFO  [report] STEP And the Category tab is selected and lists categories
-2026-11-11T16:23:31.011Z INFO  [report] STEP When I tap the Function tab
-2026-11-11T16:23:32.865Z INFO  [report] STEP Then the Function tab is selected and lists functions

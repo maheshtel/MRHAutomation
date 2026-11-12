@@ -1,1 +1,0 @@
-{"uuid":"24810822-b5fb-4932-84bd-b1f5423b51ec","name":"\"after all\" hook for Feature: Login @smoke","children":["a523e5d9-8e16-46b2-8e31-9842c29ae83e"],"befores":[],"afters":[{"status":"passed","statusDetails":{},"stage":"finished","steps":[],"attachments":[],"parameters":[],"start":1794391263603,"name":"\"after all\" hook for Feature: Login @smoke","stop":1794391274345}]}

@@ -1,8 +1,0 @@
-.........Console Logs.........
-
-2026-11-11T16:32:09.312Z INFO  [report] STEP Given I am signed in as a customer
-2026-11-11T16:32:28.077Z INFO  [report] STEP When I tap Sign Out on the Account page
-2026-11-11T16:32:30.763Z INFO  [report] STEP Then the Account page shows the guest view with a Sign In button
-2026-11-11T16:32:39.410Z INFO  [report] STEP And my account details are no longer shown
-2026-11-11T16:32:39.733Z INFO  [report] STEP And I am still signed out after restarting the app
-2026-11-11T16:32:48.053Z INFO  [app] App is ready
