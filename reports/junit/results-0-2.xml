@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="1" failures="0" errors="0" skipped="0">
+  <testsuite name="Feature Cart management @smoke" timestamp="2026-11-11T22:41:22" time="47.526" tests="1" failures="0" errors="0" skipped="0">
+    <properties>
+      <property name="specId" value="0"/>
+      <property name="suiteName" value="Feature: Cart management @smoke"/>
+      <property name="capabilities" value="android.hy6dfquk4p9hl7du"/>
+      <property name="file" value="file:///C:/Projects/MRH-StoreFront-App/e2e-appium/test/specs/cart.e2e.ts"/>
+    </properties>
+    <testcase classname="android.hy6dfquk4p9hl7du.Feature:_Cart_management_@smoke" name="Scenario Add a searched product to the cart and remove it" time="46.321">
+      <system-out><![CDATA[
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000449/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000449/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000004d9/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/attribute/content-desc - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().description(\"Shop tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().description(\"Shop tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000049/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000049/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000056d/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000056d/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-scroll\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-scroll\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000574/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header-search-button\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header-search-button\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000056f/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000056f/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-overlay-sheet\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-overlay-sheet\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-overlay-sheet\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-overlay-sheet\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000605/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-bar-input\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-bar-input\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000061b/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000061b/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000061b/clear - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000061b/clear - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff0000061b/value - {"text":"lavender"}
+RESULT: {"text":"lavender"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionMatches(\"(?i).*lavender.*[$][0-9].*\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionMatches(\"(?i).*lavender.*[$][0-9].*\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionMatches(\"(?i).*lavender.*[$][0-9].*\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionMatches(\"(?i).*lavender.*[$][0-9].*\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000629/displayed - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000629/attribute/content-desc - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/appium/device/is_keyboard_shown - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/appium/device/hide_keyboard - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000629/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-overlay-sheet\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"search-overlay-sheet\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-screen\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000678/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-scroll-view\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-scroll-view\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000006cc/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-actions-submit\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-actions-submit\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/window/rect - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/actions - {"actions":[{"id":"pointer1","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":519,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+RESULT: {"actions":[{"id":"pointer1","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":519,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+COMMAND: DELETE /session/410ca442-5f97-4dff-ad6a-bad3579b4411/actions - {}
+RESULT: {}
+COMMAND: DELETE /session/410ca442-5f97-4dff-ad6a-bad3579b4411/actions - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-actions-submit\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-actions-submit\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000749/displayed - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/window/rect - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000749/rect - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000749/rect - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000749/attribute/content-desc - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-actions-submit\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"product-detail-actions-submit\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000749/enabled - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000749/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/attribute/content-desc - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/attribute/content-desc - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000449/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000449/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008a8/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008a8/attribute/content-desc - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008a8/attribute/resource-id - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-item-1d70c61b-48f7-474b-bf95-9926f07d0579-delete\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-item-1d70c61b-48f7-474b-bf95-9926f07d0579-delete\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008af/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/execute/sync - {"script":"<script> [19 bytes]","args":[{}]}
+RESULT: {"script":"<script> [19 bytes]","args":[{}]}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008a8/rect - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008a8/rect - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008af/rect - {}
+RESULT: {}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008af/rect - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008af/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff000008e2/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000970/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"cart-(item|gift-certificate)-[0-9a-fA-F-]+\")"}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/attribute/content-desc - {}
+RESULT: {}
+COMMAND: DELETE /session/410ca442-5f97-4dff-ad6a-bad3579b4411 - {}
+RESULT: {}
+]]></system-out>
+    </testcase>
+    <system-out><![CDATA[
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/click - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000449/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-screen\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000449/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"cart-empty\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000970/displayed - {}
+RESULT: {}
+COMMAND: POST /session/410ca442-5f97-4dff-ad6a-bad3579b4411/elements - {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().descriptionStartsWith(\"Cart tab\")"}
+COMMAND: GET /session/410ca442-5f97-4dff-ad6a-bad3579b4411/element/00000000-0000-016c-ffff-ffff00000058/attribute/content-desc - {}
+RESULT: {}
+]]></system-out>
+  </testsuite>
+</testsuites>

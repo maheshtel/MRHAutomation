@@ -1,0 +1,15 @@
+.........Console Logs.........
+
+2026-11-11T17:12:42.817Z INFO  [report] STEP Given my cart is empty
+2026-11-11T17:12:46.106Z INFO  [report] STEP And I have added a "lavender" product to my cart
+2026-11-11T17:12:59.605Z INFO  [search] Opening search result {
+  title: [32m'Lavender Flowers, English Organic'[39m,
+  label: [32m'Lavender Flowers, English Organic, $9.25 – $46.50'[39m
+}
+2026-11-11T17:13:21.906Z INFO  [report] STEP When I increase the item's quantity
+2026-11-11T17:13:25.447Z INFO  [report] STEP Then the quantity goes up by one and the cart badge matches
+2026-11-11T17:13:26.553Z INFO  [report] STEP When I decrease the item's quantity
+2026-11-11T17:13:30.531Z INFO  [report] STEP Then the quantity goes back down and the cart badge matches
+2026-11-11T17:13:31.079Z INFO  [report] STEP When I apply the invalid coupon code "E2E-NOT-A-REAL-CODE"
+2026-11-11T17:13:40.483Z INFO  [report] STEP Then I see a message that the coupon is invalid
+2026-11-11T17:13:41.952Z INFO  [report] STEP And no coupon is applied to my cart

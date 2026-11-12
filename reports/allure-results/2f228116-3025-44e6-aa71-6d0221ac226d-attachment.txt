@@ -1,0 +1,18 @@
+.........Console Logs.........
+
+2026-11-11T17:08:47.947Z INFO  [report] STEP Given I am a guest on the Account page
+2026-11-11T17:08:52.742Z INFO  [report] STEP When I open the Sign In screen
+2026-11-11T17:08:54.486Z INFO  [report] STEP And I sign in with valid customer credentials
+2026-11-11T17:09:02.565Z INFO  [report] STEP Then my Account page shows my email address
+2026-11-11T17:09:08.228Z INFO  [report] STEP When I open the Home tab
+2026-11-11T17:09:14.053Z INFO  [report] STEP Then the Home page shows every key section (Top banner, Hero search bar, Top categories, Product shelf, Brand footer)
+2026-11-11T17:09:14.863Z INFO  [home] Section visible: Top banner
+2026-11-11T17:09:15.632Z INFO  [home] Section visible: Hero search bar
+2026-11-11T17:09:17.524Z INFO  [home] Section visible: Announcement banner
+2026-11-11T17:09:19.027Z INFO  [home] Section visible: What's New
+2026-11-11T17:09:22.161Z INFO  [home] Section visible: Product shelf
+2026-11-11T17:09:30.574Z INFO  [home] Section visible: Top categories
+2026-11-11T17:09:31.143Z INFO  [home] Section visible: Sub-categories
+2026-11-11T17:09:35.600Z INFO  [home] Section visible: Image banner
+2026-11-11T17:09:39.566Z INFO  [home] Section visible: Recently viewed
+2026-11-11T17:09:43.112Z INFO  [home] Section visible: Brand footer

@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="1" failures="0" errors="0" skipped="0">
+  <testsuite name="Feature Shop navigation @smoke" timestamp="2026-11-11T22:40:32" time="17.761" tests="1" failures="0" errors="0" skipped="0">
+    <properties>
+      <property name="specId" value="0"/>
+      <property name="suiteName" value="Feature: Shop navigation @smoke"/>
+      <property name="capabilities" value="android.hy6dfquk4p9hl7du"/>
+      <property name="file" value="file:///C:/Projects/MRH-StoreFront-App/e2e-appium/test/specs/navigation.e2e.ts"/>
+    </properties>
+    <testcase classname="android.hy6dfquk4p9hl7du.Feature:_Shop_navigation_@smoke" name="Scenario The Shop menu shows the Category and Function sections" time="17.747">
+      <system-out><![CDATA[
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().description(\"Home tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().description(\"Home tab\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000003a/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000003a/click - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000081/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000081/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().description(\"Shop tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().description(\"Shop tab\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000049/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000049/click - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000044a/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000044a/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-scroll\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-scroll\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000451/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header-title\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-screen-header-title\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000044b/text - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-quick-shop-section\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-quick-shop-section\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000453/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000045f/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/window/rect - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000045f/rect - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000045f/rect - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000045f/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Function\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Function\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000462/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000045f/selected - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-category-list-category\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-category-list-category\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000046d/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"shop-category-tree-category-.*\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"shop-category-tree-category-.*\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000046f/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000470/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000476/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000477/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000047d/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000047e/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000484/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000485/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000048b/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000048c/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000492/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000493/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000499/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000049a/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004a0/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004a1/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Function\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Function\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000462/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000462/click - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-category-list-function\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-category-list-function\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004b4/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Function\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Function\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff00000462/selected - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-by-tabs-tab-Category\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff0000045f/selected - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-category-list-function\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"shop-category-list-function\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004b4/displayed - {}
+RESULT: {}
+COMMAND: POST /session/e268e793-cc05-45da-8dd3-9161d181f66d/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"shop-category-tree-function-.*\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"shop-category-tree-function-.*\")"}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004b6/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004b7/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004ba/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004bb/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004be/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004bf/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004c2/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004c3/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004c6/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004c7/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004ca/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004cb/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004ce/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004cf/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004d2/displayed - {}
+RESULT: {}
+COMMAND: GET /session/e268e793-cc05-45da-8dd3-9161d181f66d/element/00000000-0000-0159-ffff-ffff000004d3/displayed - {}
+RESULT: {}
+COMMAND: DELETE /session/e268e793-cc05-45da-8dd3-9161d181f66d - {}
+RESULT: {}
+]]></system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

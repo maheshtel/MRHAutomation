@@ -1,0 +1,11 @@
+.........Console Logs.........
+
+2026-11-11T17:16:41.200Z INFO  [report] STEP Given I am signed in as a customer
+2026-11-11T17:16:59.007Z INFO  [report] STEP And my cart has at least one product
+2026-11-11T17:17:03.714Z INFO  [report] STEP And a test list exists in My Lists
+2026-11-11T17:17:16.828Z INFO  [report] STEP When I remove every product from my cart
+2026-11-11T17:17:26.284Z INFO  [report] STEP Then my cart is empty and the cart badge shows no items
+2026-11-11T17:17:27.013Z INFO  [report] STEP When I delete the list "E2E List mwcdpj2j"
+2026-11-11T17:17:41.212Z INFO  [wishlist] Deleting list "E2E List mwcdpj2j"
+2026-11-11T17:17:47.489Z INFO  [lists] Deleted list "E2E List mwcdpj2j"
+2026-11-11T17:17:47.491Z INFO  [report] STEP Then the list no longer appears in My Lists

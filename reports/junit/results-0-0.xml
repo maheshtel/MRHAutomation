@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="1" failures="0" errors="0" skipped="0">
+  <testsuite name="Feature Login @smoke" timestamp="2026-11-11T22:38:47" time="70.019" tests="1" failures="0" errors="0" skipped="0">
+    <properties>
+      <property name="specId" value="0"/>
+      <property name="suiteName" value="Feature: Login @smoke"/>
+      <property name="capabilities" value="android.hy6dfquk4p9hl7du"/>
+      <property name="file" value="file:///C:/Projects/MRH-StoreFront-App/e2e-appium/test/specs/login.e2e.ts"/>
+    </properties>
+    <testcase classname="android.hy6dfquk4p9hl7du.Feature:_Login_@smoke" name="Scenario A customer signs in and sees the full Home page" time="55.183">
+      <system-out><![CDATA[
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().description(\"Account tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().description(\"Account tab\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000067/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000067/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-screen\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000000dc/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000000e0/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000000e0/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-signin\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-signin\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000000e5/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000000e5/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"login-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"login-screen\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000131/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"email-input\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"email-input\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000156/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000156/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000156/clear - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000156/clear - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000156/value - {"text":"mahesh.tel@cennest.com"}
+RESULT: {"text":"mahesh.tel@cennest.com"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"password-input\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"password-input\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000015b/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000015b/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000015b/clear - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000015b/clear - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000015b/value - {"text":"Test@123"}
+RESULT: {"text":"Test@123"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/appium/device/is_keyboard_shown - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/appium/device/hide_keyboard - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"sign-in-button\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"sign-in-button\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000160/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000160/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000017a/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"login-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"login-screen\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-email-card\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-email-card\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000017c/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-email-card\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-email-card\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000017c/attribute/content-desc - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().description(\"Home tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().description(\"Home tab\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000003a/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000003a/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000081/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-screen\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000081/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-top-banner-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-top-banner-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000001eb/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-top-banner-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-top-banner-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000001eb/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-top-banner-[0-9]+-search\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-top-banner-[0-9]+-search\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000001f5/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-announcement-banner-[0-9]+-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-announcement-banner-[0-9]+-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000200/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-whats-new-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-whats-new-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000239/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"top-categories-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"top-categories-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-subcategories-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-subcategories-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-products-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-products-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000002ea/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/window/rect - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {"actions":[{"id":"pointer1","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+RESULT: {"actions":[{"id":"pointer1","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"top-categories-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"top-categories-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-subcategories-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-subcategories-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/window/rect - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {"actions":[{"id":"pointer2","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+RESULT: {"actions":[{"id":"pointer2","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"top-categories-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"top-categories-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000262/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-subcategories-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-subcategories-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000003ef/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/window/rect - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {"actions":[{"id":"pointer3","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+RESULT: {"actions":[{"id":"pointer3","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-image-banner-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000002dd/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/window/rect - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {"actions":[{"id":"pointer4","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+RESULT: {"actions":[{"id":"pointer4","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-recently-viewed-[0-9]+\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000055c/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/window/rect - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {"actions":[{"id":"pointer5","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+RESULT: {"actions":[{"id":"pointer5","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":439,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceIdMatches(\"home-purchase-again-[0-9]+\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"home-brand-footer\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000002e2/displayed - {}
+RESULT: {}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e - {}
+RESULT: {}
+]]></system-out>
+    </testcase>
+    <system-out><![CDATA[
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().description(\"Account tab\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().description(\"Account tab\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000067/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff00000067/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-screen\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-screen\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000000dc/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-logged-in-content\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000017a/displayed - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-menu-sign-out\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-menu-sign-out\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/window/rect - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {"actions":[{"id":"pointer6","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":519,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+RESULT: {"actions":[{"id":"pointer6","type":"pointer","parameters":{"pointerType":"touch"},"actions":[{"type":"pointerMove","button":0,"x":360,"y":1241,"duration":100,"origin":"viewport"},{"type":"pointerDown","button":0},{"type":"pause","duration":80},{"type":"pointerMove","button":0,"x":360,"y":519,"duration":450,"origin":"viewport"},{"type":"pause","duration":80},{"type":"pointerUp","button":0}]}]}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: DELETE /session/8f84c81b-574d-419a-8f11-21eeee17e15e/actions - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-menu-sign-out\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-menu-sign-out\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000001df/displayed - {}
+RESULT: {}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/window/rect - {}
+RESULT: {}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000001df/rect - {}
+RESULT: {}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000001df/rect - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff000001df/click - {}
+RESULT: {}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: POST /session/8f84c81b-574d-419a-8f11-21eeee17e15e/elements - {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+RESULT: {"using":"-android uiautomator","value":"new UiSelector().resourceId(\"account-guest-content\")"}
+COMMAND: GET /session/8f84c81b-574d-419a-8f11-21eeee17e15e/element/00000000-0000-0144-ffff-ffff0000069c/displayed - {}
+RESULT: {}
+]]></system-out>
+  </testsuite>
+</testsuites>

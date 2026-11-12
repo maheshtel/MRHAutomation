@@ -1,0 +1,49 @@
+{
+	"name": "decamelize",
+	"version": "7.0.0",
+	"description": "Convert a camelized string into a lowercased one with a custom separator: unicornRainbow → unicorn_rainbow",
+	"license": "MIT",
+	"repository": "sindresorhus/decamelize",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": "Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)",
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"default": "./index.js"
+	},
+	"sideEffects": false,
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"test": "xo && node --test test.js && nz"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"decamelcase",
+		"camelcase",
+		"lowercase",
+		"case",
+		"dash",
+		"hyphen",
+		"string",
+		"text",
+		"convert"
+	],
+	"devDependencies": {
+		"nz": "^0.1.0",
+		"typescript": "^6.0.3",
+		"xo": "^5.0.1"
+	},
+	"xo": [
+		{
+			"files": "test.js",
+			"rules": {
+				"node-test/no-conditional-assertion": "off"
+			}
+		}
+	]
+}

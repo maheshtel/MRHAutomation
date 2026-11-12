@@ -1,0 +1,19 @@
+.........Console Logs.........
+
+2026-11-11T07:06:58.447Z INFO  [report] STEP Given I am signed in as a customer
+2026-11-11T07:07:56.458Z INFO  [report] STEP And my cart is empty
+2026-11-11T07:08:07.134Z INFO  [report] STEP And no test lists are left over from earlier runs
+2026-11-11T07:09:17.706Z INFO  [report] STEP When I create a new list named "E2E List mwbs0cnj"
+2026-11-11T07:10:15.145Z INFO  [lists] Created list "E2E List mwbs0cnj"
+2026-11-11T07:10:15.145Z INFO  [report] STEP Then the list appears in My Lists with no items
+2026-11-11T07:10:39.175Z INFO  [report] STEP When I search for "lavender" and save the first result to my new list
+2026-11-11T07:11:15.074Z INFO  [search] Opening search result {
+  title: 'Lavender Flowers, English Organic',
+  label: 'Lavender Flowers, English Organic, $9.25 – $46.50'
+}
+2026-11-11T07:12:14.975Z INFO  [report] STEP Then the list shows 1 item
+2026-11-11T07:12:50.272Z INFO  [report] STEP When I open the list
+2026-11-11T07:13:01.380Z INFO  [report] STEP Then it contains that product
+2026-11-11T07:13:01.565Z INFO  [report] STEP When I move the product to my cart
+2026-11-11T07:13:23.588Z INFO  [report] STEP Then the cart badge shows 1 item
+2026-11-11T07:13:24.504Z INFO  [report] STEP And my cart contains that product

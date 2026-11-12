@@ -1,0 +1,8 @@
+.........Console Logs.........
+
+2026-11-11T10:55:34.630Z INFO  [report] STEP Given my cart is empty
+2026-11-11T10:55:38.422Z INFO  [report] STEP When I search for "lavender" and open the first in-stock result
+2026-11-11T10:55:50.912Z INFO  [search] Opening search result {
+  title: [32m'Lavender Flowers, English Organic'[39m,
+  label: [32m'Lavender Flowers, English Organic, $9.25 – $46.50'[39m
+}
