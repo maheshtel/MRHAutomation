@@ -66,13 +66,13 @@ function appFrame(tags: string[]): Frame {
 }
 
 /**
- * Same rule as `isShown` in elements.ts: trust `visible`, except for plain
- * layout containers (XCUIElementTypeOther), which XCUITest marks
+ * Same rule as `isShown` in elements.ts: trust `visible`, except for nodes that
+ * are not accessibility elements (accessible="false"), which XCUITest marks
  * visible="false" even on screen — for those, a frame overlapping the window.
  */
 function onScreenIos(tag: string, screen: Frame): boolean {
   if (attribute(tag, 'visible') !== 'false') return true;
-  if (attribute(tag, 'type') !== 'XCUIElementTypeOther') return false;
+  if (attribute(tag, 'accessible') !== 'false') return false;
   const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((n) => num(tag, n));
   return w > 0 && h > 0 && x < screen.width && y < screen.height && x + w > 0 && y + h > 0;
 }

@@ -38,20 +38,22 @@ async function screenSize(): Promise<{ width: number; height: number }> {
  *
  * Android: UiAutomator2's `displayed` is reliable.
  *
- * iOS: XCUITest reports plain React Native layout views — `XCUIElementTypeOther`
- * containers that are not accessibility elements, such as a screen's root
- * (`login-screen`, `account-screen`, …) or a card wrapper — as
- * `visible="false"` even while they fill the screen. Waiting for such a root
- * to be "displayed" therefore times out although the screen is up. For those
- * containers only, "on screen" means: present in the hierarchy with a
- * non-empty frame that overlaps the window. React Navigation removes screens
- * that are not showing from the iOS hierarchy, so presence is meaningful.
+ * iOS: XCUITest computes `visible` only for accessibility elements. Views that
+ * are NOT accessibility elements (`accessible="false"`) are reported
+ * `visible="false"` even while they fill the screen — a screen root
+ * (`login-screen`, `home-screen`), an image (`home-top-banner-1`), a text
+ * inside a card. Measured over the CI page sources: every on-screen node with
+ * visible="false" had accessible="false", and every accessible="true" node with
+ * visible="false" really was off screen. So for non-accessible nodes only,
+ * "on screen" means: a non-empty frame that overlaps the window. React
+ * Navigation removes screens that are not showing from the iOS hierarchy, and
+ * scrolled-away content has an off-window frame, so this stays meaningful.
  */
 export async function isShown(element: WebdriverIO.Element): Promise<boolean> {
   if (await element.isDisplayed().catch(() => false)) return true;
   if (isAndroid()) return false;
   try {
-    if ((await element.getAttribute('type')) !== 'XCUIElementTypeOther') return false;
+    if ((await element.getAttribute('accessible')) !== 'false') return false;
     const rect = await driver.getElementRect(element.elementId);
     const screen = await screenSize();
     return (
