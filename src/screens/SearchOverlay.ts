@@ -15,7 +15,8 @@
  */
 import { driver } from '@wdio/globals';
 import { env } from '../../config/env';
-import { getLabel, hideKeyboard, typeText, waitForFirstVisible } from '../core/elements';
+import { getLabel, typeText, waitForFirstVisible } from '../core/elements';
+import { hideAndroidKeyboard } from '../core/keyboard';
 import { createLogger } from '../core/logger';
 import { by, escapeRegex } from '../core/locators';
 import { BaseScreen } from './BaseScreen';
@@ -69,9 +70,11 @@ class SearchOverlayObject extends BaseScreen {
     const product = { title: titleFromRowLabel(label), label };
     log.info('Opening search result', product);
 
-    // The keyboard can cover the lower rows on small screens; the first row is
-    // at the top of the list, but hiding it keeps the tap unambiguous.
-    await hideKeyboard();
+    // Never press the search field's return key: it commits the query and
+    // replaces this typeahead with the results page. Android hides the
+    // keyboard with BACK; on iOS the first row sits above the keyboard and the
+    // list (keyboardShouldPersistTaps="handled") takes the tap directly.
+    await hideAndroidKeyboard();
     await first.click();
     await driver.waitUntil(async () => !(await this.isLoaded()), {
       timeout: 15_000,

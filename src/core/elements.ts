@@ -182,11 +182,16 @@ export async function tap(selector: Selector, opts: WaitOptions = {}): Promise<v
   await element.click();
 }
 
-export async function typeText(selector: Selector, text: string, opts: WaitOptions = {}) {
+export interface TypeOptions extends WaitOptions {
+  /** Keep the typed value out of logs and reports (passwords). */
+  mask?: boolean;
+}
+
+export async function typeText(selector: Selector, text: string, opts: TypeOptions = {}) {
   const element = await waitForDisplayed(selector, opts);
   await element.click();
   await element.clearValue();
-  await element.setValue(text);
+  await element.setValue(text, opts.mask ? { mask: true } : undefined);
 }
 
 /** Number of currently visible elements matching the selector. */
@@ -210,19 +215,4 @@ export async function getLabel(element: WebdriverIO.Element): Promise<string> {
 export async function getTestId(element: WebdriverIO.Element): Promise<string> {
   const value = await element.getAttribute(isAndroid() ? 'resource-id' : 'name');
   return value ?? '';
-}
-
-export async function hideKeyboard(): Promise<void> {
-  try {
-    if (!(await driver.isKeyboardShown())) return;
-    if (isAndroid()) {
-      await driver.hideKeyboard();
-    } else {
-      // iOS has no universal "hide" — pressing the return key works for the
-      // single-line fields this app uses.
-      await driver.execute('mobile: hideKeyboard', { keys: ['return', 'done', 'Done'] });
-    }
-  } catch {
-    // Keyboard already gone, or the platform refused; neither should fail a test.
-  }
 }

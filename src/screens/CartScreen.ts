@@ -27,7 +27,6 @@ import { env } from '../../config/env';
 import {
   getLabel,
   getTestId,
-  hideKeyboard,
   isVisible,
   tap,
   typeText,
@@ -35,6 +34,7 @@ import {
   waitForDisplayed,
 } from '../core/elements';
 import { scrollUntilVisible } from '../core/gestures';
+import { tapPastKeyboard } from '../core/keyboard';
 import { by } from '../core/locators';
 import { type EdgeOffset, tapNested } from '../core/nested';
 import { BaseScreen } from './BaseScreen';
@@ -217,8 +217,10 @@ class CartScreenObject extends BaseScreen {
 
   async applyCoupon(code: string): Promise<void> {
     await typeText(by.testId(this.ids.couponInput), code, { name: 'coupon code field' });
-    await hideKeyboard();
-    await tap(by.testId(this.ids.couponApply), { name: 'Apply coupon button' });
+    await tapPastKeyboard(by.testId(this.ids.couponApply), {
+      name: 'Apply coupon button',
+      returnKeyIsEquivalent: true, // coupon field's return key runs the same apply()
+    });
   }
 
   /** Waits for the inline coupon error and returns its text. */

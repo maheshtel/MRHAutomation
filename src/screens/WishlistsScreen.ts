@@ -20,7 +20,6 @@
 import { $, driver } from '@wdio/globals';
 import { env } from '../../config/env';
 import {
-  hideKeyboard,
   isVisible,
   tap,
   typeText,
@@ -29,6 +28,7 @@ import {
   waitForGone,
 } from '../core/elements';
 import { bringAboveTabBar, scroll } from '../core/gestures';
+import { tapPastKeyboard } from '../core/keyboard';
 import { createLogger } from '../core/logger';
 import { by } from '../core/locators';
 import { type EdgeOffset, tapNested } from '../core/nested';
@@ -229,8 +229,10 @@ class WishlistsScreenObject extends BaseScreen {
       name: entry === 'header' ? '"+ New List" button' : 'empty-state "Create list" button',
     });
     await typeText(by.testId(this.ids.formInput), name, { name: 'List name field' });
-    await hideKeyboard();
-    await tap(by.testId(this.ids.formSubmit), { name: 'Create list button' });
+    await tapPastKeyboard(by.testId(this.ids.formSubmit), {
+      name: 'Create list button',
+      returnKeyIsEquivalent: true, // name field's return key runs the same handleSubmit
+    });
     await waitForGone(by.testId(this.ids.formInput), { name: 'create list sheet' });
     log.info(`Created list "${name}"`);
   }

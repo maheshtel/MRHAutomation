@@ -5,7 +5,8 @@
  * in `<testID>-subtext`.
  */
 import { $ } from '@wdio/globals';
-import { hideKeyboard, isVisible, tap, typeText } from '../core/elements';
+import { isVisible, typeText } from '../core/elements';
+import { tapPastKeyboard } from '../core/keyboard';
 import { by } from '../core/locators';
 import { BaseScreen } from './BaseScreen';
 
@@ -26,12 +27,18 @@ class LoginScreenObject extends BaseScreen {
 
   async enterCredentials(email: string, password: string): Promise<void> {
     await typeText(by.testId(this.ids.email), email, { name: 'Email field' });
-    await typeText(by.testId(this.ids.password), password, { name: 'Password field' });
-    await hideKeyboard();
+    await typeText(by.testId(this.ids.password), password, { name: 'Password field', mask: true });
   }
 
+  /**
+   * Tap SIGN IN with the keyboard still open — never via the keyboard's Done
+   * key, which on the password field signs in by itself (see core/keyboard).
+   */
   async submit(): Promise<void> {
-    await tap(by.testId(this.ids.submit), { name: 'Sign in button' });
+    await tapPastKeyboard(by.testId(this.ids.submit), {
+      name: 'Sign in button',
+      returnKeyIsEquivalent: true, // password field: returnKeyType="done" → handleLogin
+    });
   }
 
   async signIn(email: string, password: string): Promise<void> {
