@@ -10,7 +10,7 @@
  * a bug. Helpers that legitimately target "one of many" (pattern selectors such
  * as `home-products-[0-9]+`) go through `$$` via `firstVisible`.
  */
-import { $, $$, driver } from '@wdio/globals';
+import { $$, driver } from '@wdio/globals';
 import { env } from '../../config/env';
 import type { Selector } from './locators';
 import { isAndroid } from './platform';
@@ -23,13 +23,76 @@ export interface WaitOptions {
 
 const describe = (selector: Selector, name?: string) => name ?? selector;
 
+let windowSize: { sessionId: string; width: number; height: number } | undefined;
+
+async function screenSize(): Promise<{ width: number; height: number }> {
+  if (windowSize?.sessionId !== driver.sessionId) {
+    const { width, height } = await driver.getWindowSize();
+    windowSize = { sessionId: driver.sessionId, width, height };
+  }
+  return windowSize;
+}
+
+/**
+ * Is this element on screen?
+ *
+ * Android: UiAutomator2's `displayed` is reliable.
+ *
+ * iOS: XCUITest reports plain React Native layout views — `XCUIElementTypeOther`
+ * containers that are not accessibility elements, such as a screen's root
+ * (`login-screen`, `account-screen`, …) or a card wrapper — as
+ * `visible="false"` even while they fill the screen. Waiting for such a root
+ * to be "displayed" therefore times out although the screen is up. For those
+ * containers only, "on screen" means: present in the hierarchy with a
+ * non-empty frame that overlaps the window. React Navigation removes screens
+ * that are not showing from the iOS hierarchy, so presence is meaningful.
+ */
+export async function isShown(element: WebdriverIO.Element): Promise<boolean> {
+  if (await element.isDisplayed().catch(() => false)) return true;
+  if (isAndroid()) return false;
+  try {
+    if ((await element.getAttribute('type')) !== 'XCUIElementTypeOther') return false;
+    const rect = await driver.getElementRect(element.elementId);
+    const screen = await screenSize();
+    return (
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.x < screen.width &&
+      rect.y < screen.height &&
+      rect.x + rect.width > 0 &&
+      rect.y + rect.height > 0
+    );
+  } catch {
+    return false; // stale / gone between the find and the check
+  }
+}
+
+/**
+ * Wait until the element is on screen (see `isShown`) and return it.
+ * Re-queries on every poll, so a re-rendered element never leaves the wait
+ * holding a stale reference.
+ */
 export async function waitForDisplayed(selector: Selector, opts: WaitOptions = {}) {
-  const element = $(selector);
-  await element.waitForDisplayed({
-    timeout: opts.timeout ?? env.run.waitTimeout,
-    timeoutMsg: `Expected "${describe(selector, opts.name)}" to be displayed`,
-  });
-  return element;
+  let found: WebdriverIO.Element | undefined;
+  await driver.waitUntil(
+    async () => {
+      const elements = await $$(selector).getElements();
+      if (elements.length > 1) {
+        throw new Error(
+          `Selector "${describe(selector, opts.name)}" matches ${elements.length} elements; ` +
+            'use waitForFirstVisible for one-of-many locators',
+        );
+      }
+      found = elements[0] && (await isShown(elements[0])) ? elements[0] : undefined;
+      return found !== undefined;
+    },
+    {
+      timeout: opts.timeout ?? env.run.waitTimeout,
+      interval: 300,
+      timeoutMsg: `Expected "${describe(selector, opts.name)}" to be displayed`,
+    },
+  );
+  return found as WebdriverIO.Element;
 }
 
 /**
@@ -52,7 +115,7 @@ export async function waitForGone(selector: Selector, opts: WaitOptions = {}): P
 export async function firstVisible(selector: Selector): Promise<WebdriverIO.Element | undefined> {
   const elements = await $$(selector).getElements();
   for (const element of elements) {
-    if (await element.isDisplayed().catch(() => false)) return element;
+    if (await isShown(element)) return element;
   }
   return undefined;
 }
@@ -132,7 +195,7 @@ export async function countVisible(selector: Selector): Promise<number> {
   // Sequential on purpose: Appium serialises commands per session anyway.
   let visible = 0;
   for (const element of elements) {
-    if (await element.isDisplayed().catch(() => false)) visible += 1;
+    if (await isShown(element)) visible += 1;
   }
   return visible;
 }

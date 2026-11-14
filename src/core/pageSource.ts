@@ -37,13 +37,42 @@ export async function nodesWithTestId(pattern: RegExp): Promise<SourceNode[]> {
   const idAttr = isAndroid() ? 'resource-id' : 'name';
   const labelAttr = isAndroid() ? 'content-desc' : 'label';
   const nodes: SourceNode[] = [];
+  const tags = source.match(/<[A-Za-z][^>]*>/g) ?? [];
+  const screen = isAndroid() ? undefined : appFrame(tags);
 
-  for (const tag of source.match(/<[A-Za-z][^>]*>/g) ?? []) {
+  for (const tag of tags) {
     const testId = attribute(tag, idAttr);
     if (!testId || !pattern.test(testId)) continue;
     // Android only lists on-screen nodes; iOS lists everything and flags it.
-    if (!isAndroid() && attribute(tag, 'visible') === 'false') continue;
+    if (screen && !onScreenIos(tag, screen)) continue;
     nodes.push({ testId, label: attribute(tag, labelAttr) ?? '' });
   }
   return nodes;
+}
+
+interface Frame {
+  width: number;
+  height: number;
+}
+
+const num = (tag: string, name: string) => Number(attribute(tag, name) ?? NaN);
+
+/** Window size from the root XCUIElementTypeApplication node. */
+function appFrame(tags: string[]): Frame {
+  const app = tags.find((t) => t.startsWith('<XCUIElementTypeApplication'));
+  return app
+    ? { width: num(app, 'width'), height: num(app, 'height') }
+    : { width: Infinity, height: Infinity };
+}
+
+/**
+ * Same rule as `isShown` in elements.ts: trust `visible`, except for plain
+ * layout containers (XCUIElementTypeOther), which XCUITest marks
+ * visible="false" even on screen — for those, a frame overlapping the window.
+ */
+function onScreenIos(tag: string, screen: Frame): boolean {
+  if (attribute(tag, 'visible') !== 'false') return true;
+  if (attribute(tag, 'type') !== 'XCUIElementTypeOther') return false;
+  const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((n) => num(tag, n));
+  return w > 0 && h > 0 && x < screen.width && y < screen.height && x + w > 0 && y + h > 0;
 }
