@@ -192,7 +192,7 @@ retries (default 2), app URL, device / image.
 | Animations off | 3 animation scales = 0 (+ `disableWindowAnimation`) | Reduce Motion + `reduceMotion` |
 | Emulator system image cached between runs | ✔ | — |
 | App installed **once**, then `pm clear` per spec instead of reinstalling | ✔ (`installOnce`) | — |
-| No WebDriverAgent compile: Appium's prebuilt simulator WDA, cached | — | ✔ (`usePrebuiltWda`) |
+| WebDriverAgent compiled once in its own step and cached; sessions only launch it | — | ✔ |
 | Appium starts from the cached local install (no driver download) | ✔ | ✔ |
 
 Caches are saved after a run that passes, so the first run is the slowest.

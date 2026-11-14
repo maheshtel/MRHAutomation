@@ -135,6 +135,17 @@ export const env = {
     get prebuiltWdaPath() {
       return appPath('IOS_PREBUILT_WDA_PATH');
     },
+    /**
+     * DerivedData folder holding a WebDriverAgent already compiled with
+     * `xcodebuild build-for-testing` (scripts/ci/build-wda.sh). When set,
+     * Appium only launches WDA (test-without-building) instead of compiling it
+     * inside the first session.
+     */
+    get wdaDerivedDataPath() {
+      return appPath('IOS_WDA_DERIVED_DATA_PATH');
+    },
+    /** Stream xcodebuild's output into the Appium log (CI: explains WDA failures). */
+    showXcodeLog: bool('IOS_SHOW_XCODE_LOG', false),
   },
 
   appium: {

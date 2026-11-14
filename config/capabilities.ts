@@ -98,15 +98,23 @@ export function iosCapabilities(): Caps {
     'appium:waitForIdleTimeout': 0,
     'appium:reduceMotion': true,
 
-    // Simulator speed-ups (CI): no simulator window, and a prebuilt WDA that is
-    // installed as-is instead of being compiled by xcodebuild.
+    // Simulator speed-ups (CI): no simulator window, and WebDriverAgent that is
+    // already compiled — Appium then only launches it. Compiling WDA inside the
+    // session takes longer than wdaLaunchTimeout on hosted Macs.
     ...(!isReal && ios.headless ? { 'appium:isHeadless': true } : {}),
-    ...(!isReal && ios.prebuiltWdaPath
+    ...(!isReal && ios.wdaDerivedDataPath
+      ? {
+          'appium:usePrebuiltWDA': true,
+          'appium:derivedDataPath': ios.wdaDerivedDataPath,
+        }
+      : {}),
+    ...(!isReal && !ios.wdaDerivedDataPath && ios.prebuiltWdaPath
       ? {
           'appium:usePreinstalledWDA': true,
           'appium:prebuiltWDAPath': ios.prebuiltWdaPath,
         }
       : {}),
+    ...(ios.showXcodeLog ? { 'appium:showXcodeLog': true } : {}),
 
     // Real device: WebDriverAgent must be code-signed.
     ...(isReal

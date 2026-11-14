@@ -2,14 +2,15 @@
 # Appium E2E — iOS simulator on a Microsoft-hosted macOS agent
 #
 # Flow (the simulator boots in the background while everything else runs):
-#   checkout → node → start simulator ┐
-#   deps (cached)                     │ overlap
-#   prebuilt WebDriverAgent (cached)  │
-#   download + unzip .app             ┘
-#   wait for boot → run tests → publish reports
+#   checkout → node → start simulator   ┐
+#   deps (cached)                       │ overlap
+#   compile WebDriverAgent (cached)     │
+#   download + unzip .app               ┘
+#   wait for boot → warm up → run tests → publish reports
 #
-# Speed: no WebDriverAgent compile (Appium's prebuilt simulator WDA is
-# installed as-is), headless simulator, reduced motion, cached node_modules.
+# Speed: WebDriverAgent is compiled once in its own step and cached, so
+# sessions only launch it; headless simulator, reduced motion, cached
+# node_modules.
 #
 # One-time setup: variable group `mrh-e2e` (Pipelines › Library) with
 #   TEST_USER_EMAIL     (secret)
@@ -60,10 +61,6 @@ parameters:
     type: string
     default: macOS-latest
     values: [macOS-latest, macOS-15, macOS-14]
-  - name: usePrebuiltWda
-    displayName: Use Appium's prebuilt WebDriverAgent (skip the xcodebuild compile)
-    type: boolean
-    default: true
 
 variables:
   - group: mrh-e2e
@@ -71,8 +68,8 @@ variables:
     value: 'true'
   - name: NODE_VERSION
     value: '22.x'
-  - name: WDA_DIR
-    value: $(Pipeline.Workspace)/wda-sim
+  - name: WDA_BUILD_DIR
+    value: $(Pipeline.Workspace)/wda-build
 
 jobs:
   - job: ios_e2e
@@ -123,18 +120,25 @@ jobs:
         displayName: Install test suite (WebdriverIO, Appium, XCUITest)
         condition: and(succeeded(), ne(variables.NODE_MODULES_RESTORED, 'true'))
 
-      # ── 3. WebDriverAgent (prebuilt; cached per driver version) ────────────
-      - ${{ if eq(parameters.usePrebuiltWda, true) }}:
-          - task: Cache@2
-            displayName: Cache prebuilt WebDriverAgent
-            inputs:
-              # package-lock pins the xcuitest driver, which pins the WDA version.
-              key: 'wda-sim | "$(Agent.OSArchitecture)" | package-lock.json'
-              path: $(WDA_DIR)
+      # ── 3. WebDriverAgent: compiled here once, cached, only LAUNCHED by Appium ─
+      # (Compiling it inside the first session outlasted wdaLaunchTimeout.)
+      - bash: |
+          v="$(xcodebuild -version | head -1 | tr -cd '0-9.')"
+          echo "Xcode $v"
+          echo "##vso[task.setvariable variable=XCODE_VERSION]$v"
+        displayName: Detect Xcode version
 
-          - bash: ./scripts/ci/prebuilt-wda.sh "$(WDA_DIR)"
-            displayName: Fetch prebuilt WebDriverAgent (simulator)
-            timeoutInMinutes: 5
+      - task: Cache@2
+        displayName: Cache compiled WebDriverAgent
+        inputs:
+          # package-lock pins the xcuitest driver (and so the WDA sources);
+          # a different Xcode needs a fresh build.
+          key: 'wda-build | "$(Agent.OSArchitecture)" | "$(XCODE_VERSION)" | package-lock.json'
+          path: $(WDA_BUILD_DIR)
+
+      - bash: ./scripts/ci/build-wda.sh "$(WDA_BUILD_DIR)"
+        displayName: Compile WebDriverAgent (build-for-testing)
+        timeoutInMinutes: 20
 
       # ── 4. App under test ─────────────────────────────────────────────────
       - bash: ./scripts/ci/download-app.sh ios "${{ parameters.appZipUrl }}"
@@ -171,8 +175,10 @@ jobs:
               exit 1
             fi
           done
-          # Unset when the WDA step was skipped or fell back (Appium then builds WDA).
-          if [[ "${IOS_PREBUILT_WDA_PATH:-}" == '$('* ]]; then unset IOS_PREBUILT_WDA_PATH; fi
+          if [[ -z "${IOS_WDA_DERIVED_DATA_PATH:-}" || "$IOS_WDA_DERIVED_DATA_PATH" == '$('* ]]; then
+            echo "##vso[task.logissue type=error]IOS_WDA_DERIVED_DATA_PATH is not set — the 'Compile WebDriverAgent' step must succeed first."
+            exit 1
+          fi
           suite_arg=""
           if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
           npx wdio run config/wdio.ios.conf.ts $suite_arg
@@ -187,7 +193,8 @@ jobs:
           IOS_PLATFORM_VERSION: $(IOS_PLATFORM_VERSION)
           IOS_APP_PATH: $(IOS_APP_PATH)
           IOS_HEADLESS: 'true'
-          IOS_PREBUILT_WDA_PATH: $(IOS_PREBUILT_WDA_PATH)
+          IOS_WDA_DERIVED_DATA_PATH: $(IOS_WDA_DERIVED_DATA_PATH)
+          IOS_SHOW_XCODE_LOG: 'true' # xcodebuild output in the Appium log if WDA won't start
           TEST_RETRIES: ${{ parameters.retries }}
           # A spec whose session could not start is re-run once at the end of the
           # run (new session, warmed-up device) instead of failing outright.
