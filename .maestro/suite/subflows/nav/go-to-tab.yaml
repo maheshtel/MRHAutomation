@@ -29,6 +29,13 @@ appId: com.mrh.mobilestore
 # retryTapIfNoChange: false - when we're already on this tab, the tap changes
 # nothing, and Maestro's default would keep waiting and re-tapping (measured:
 # 50s). A tap that really didn't land is handled by the retry block.
+#
+# waitToSettleTimeoutMs: 3000 - before and after a tap Maestro waits for the
+# screen to stop changing. A screen that animates all the time (Home's loading
+# placeholder shimmers until its content arrives) made that wait run to its own
+# limit: in Android run 20261112-103046 every tab tap made from Home took 42-55s
+# (36s of it waiting to settle), against ~4s from other screens. The tab bar
+# doesn't move, and the next step waits for the destination screen anyway.
 
 - retry:
     maxRetries: 2
@@ -36,6 +43,7 @@ appId: com.mrh.mobilestore
       - tapOn:
           text: "${TAB} tab.*"
           retryTapIfNoChange: false
+          waitToSettleTimeoutMs: 3000
           label: "Tap the ${TAB} tab"
       - extendedWaitUntil:
           visible:

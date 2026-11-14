@@ -16,6 +16,13 @@ appId: com.mrh.mobilestore
 # passed because its sign-in refreshed Home. Pull-to-refresh always fetches again,
 # even while the app's automatic loading is held back.
 #
+# What a refresh can't fix: the server answering with content the app rejects.
+# In Android run 20261112-103046 every request (all tests, before and after
+# sign-in, after each pull) returned an empty "mobile-pages" section, which
+# types/homeShellValidity.ts rejects ("home content shell rejected" in logcat).
+# That is a backend/CMS problem; this wait then fails after ~2 minutes. Tests
+# that only need search don't wait for Home at all (../search/open-search.yaml).
+#
 # How: up to 3 tries of 40s each. Try 1 only waits; tries 2 and 3 first pull Home
 # down (a swipe from the upper part of Home, which also scrolls back to the top if
 # Home was scrolled). The search bar ends the wait at once, so a Home that loads
@@ -35,6 +42,9 @@ appId: com.mrh.mobilestore
                 start: 50%, 30%
                 end: 50%, 80%
                 duration: 800
+                # The placeholder animates without pause; without a cap the swipe
+                # waited ~50s for it to settle (Android run 20261112-103046).
+                waitToSettleTimeoutMs: 3000
       # The search bar is 'home-top-banner-N-search-bar-input' on Android and
       # 'home-top-banner-N-search' ("Open search") on iOS; the id matches both.
       - extendedWaitUntil:

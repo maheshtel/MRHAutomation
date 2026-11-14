@@ -1,0 +1,45 @@
+appId: com.mrh.mobilestore
+---
+# Opens the product search screen from the Shop tab's header search button.
+#
+# Precondition: the tab bar is on screen (any tab).
+# Ends on:      the Search screen, ready for typing into search-bar-input.
+#
+# Why the Shop header and not the Home search bar: both open the same search
+# overlay (openSearch() in searchOverlayContext), but the Home search bar only
+# exists once Home's CMS content has loaded. In Android run 20261112-103046 the
+# server's home content came back with an empty "mobile-pages" section on every
+# request; the app rejects that (types/homeShellValidity.ts) and keeps Home on its
+# loading placeholder, which has a static search bar with no testID. Pull-to-
+# refresh got the same answer. Three tests (both cart tests and the wishlist test)
+# failed there, although they test the cart and wishlists, not Home. The same
+# placeholder failed both cart tests on iOS (run 20261111-112511). The Shop tab
+# doesn't depend on that content (the Shop test passed in both runs).
+# It is also faster: Home's placeholder animates without pause, so every tap made
+# from it waited ~40s for the screen to settle.
+#
+# Same ids on Android and iOS: the button is DSScreenHeader's
+# "<testID>-search-button" with testID shop-screen-header (ShopScreen.tsx).
+
+- runFlow:
+    file: ../nav/go-to-tab.yaml
+    env:
+      TAB: Shop
+      SCREEN_ID: shop-by-tabs
+- tapOn:
+    id: shop-screen-header-search-button
+    # The header button doesn't move; the next step waits for the Search screen.
+    waitToSettleTimeoutMs: 3000
+    label: Open search (Shop header)
+- extendedWaitUntil:
+    visible:
+      id: search-bar-input
+    # iOS does not expose this id (the wait always ran out there), and the field
+    # is already focused. Android finds it at once.
+    timeout: 5000
+    optional: true
+    label: Wait for the Search screen
+- tapOn:
+    id: search-bar-input
+    optional: true
+    label: Focus the search field

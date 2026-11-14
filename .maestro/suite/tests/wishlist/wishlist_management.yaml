@@ -181,12 +181,8 @@ tags:
 # ── Open a product and capture its price ─────────────────────────────────────
 # Same product search as the cart test: the first addable product from
 # output.data.products.candidates (data/test-data.js). Its name is in
-# output.productName / output.productNameRe.
-- runFlow:
-    file: ../../subflows/nav/go-to-tab.yaml
-    env:
-      TAB: Home
-      SCREEN_ID: home-screen
+# output.productName / output.productNameRe. It opens search from the Shop tab
+# itself, so there's no need to go to Home first.
 - runFlow: ../../subflows/product/open-addable-product.yaml
 
 - copyTextFrom:

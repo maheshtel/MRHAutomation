@@ -1,6 +1,6 @@
 appId: com.mrh.mobilestore
 ---
-# Searches for a product from the Home search bar and opens it.
+# Searches for a product and opens it.
 #
 # Usage:
 #   - runFlow:
@@ -8,32 +8,15 @@ appId: com.mrh.mobilestore
 #       env:
 #         PRODUCT: Mango Butter Organic   # exact product name
 #
-# Precondition: on Home.
+# Precondition: the tab bar is on screen (any tab).
 # Ends on:      the product detail page (product-detail-screen).
 #
 # The search result row has no testID; it's matched by its accessibility label,
 # "<name>, <price or price range>".
 
-# The Home search bar is 'home-top-banner-N-search-bar-input' on Android and
-# 'home-top-banner-N-search' ("Open search") on iOS; the id below matches both.
-# Waits for it, and pulls Home to refresh if Home stays on its loading placeholder.
-- runFlow: ../home/wait-for-home-content.yaml
-- tapOn:
-    id: 'home-top-banner-\d+-search(-bar-input)?'
-    label: Open search
-
-# iOS opens the Search screen without focusing the field: tap it so the text goes in.
-# Optional, so Android (which already has focus) is unaffected.
-- extendedWaitUntil:
-    visible:
-      id: search-bar-input
-    timeout: 20000
-    optional: true
-    label: Wait for the Search screen
-- tapOn:
-    id: search-bar-input
-    optional: true
-    label: Focus the search field
+# Opens search from the Shop tab's header (does not depend on Home's CMS
+# content - see open-search.yaml) and focuses the field.
+- runFlow: ../search/open-search.yaml
 
 # Android: read back and retyped if characters were lost; iOS: plain inputText.
 - runFlow:

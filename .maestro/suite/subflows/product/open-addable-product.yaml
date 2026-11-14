@@ -8,12 +8,13 @@ appId: com.mrh.mobilestore
 #   - runFlow: ../../subflows/product/open-addable-product.yaml   # relative to the caller
 #   - runFlow: ../../subflows/product/add-to-cart.yaml
 #
-# Precondition: on Home.
+# Precondition: the tab bar is on screen (any tab).
 # Ends on:      that product's detail page, with Add to Cart enabled.
 # Sets:         output.productName   - the candidate that was picked
 #               output.productNameRe - the same, regex-escaped for selectors
 #
-# Each candidate is searched for from the Home search bar, the way a user would:
+# Each candidate is searched for from the Search screen (opened from the Shop
+# tab's header, see ../search/open-search.yaml), the way a user would:
 #   - Not in the results: the result row is "<exact name>, <price>", so a
 #     similarly named product doesn't count. Search stays open; the text is
 #     erased and the next candidate typed in.
@@ -44,31 +45,13 @@ appId: com.mrh.mobilestore
             OUT: productNameRe
 
       # ── Search for it ──────────────────────────────────────────────────────
-      # From Home: open the search bar. Still in search: clear the old text.
+      # Not in search yet: open it from the Shop tab's header (does not depend on
+      # Home's CMS content - see open-search.yaml). Still in search: clear the old text.
       - runFlow:
           when:
             true: ${!output.searchOpen}
-          label: Open search from Home
-          commands:
-            # The search bar is part of Home's loaded content: home-screen is
-            # shown first with a "Loading home" placeholder (slow on a cold start).
-            # Pulls Home to refresh it if it stays on the placeholder.
-            - runFlow: ../home/wait-for-home-content.yaml
-            - tapOn:
-                id: 'home-top-banner-\d+-search(-bar-input)?'
-                label: Open search
-            - extendedWaitUntil:
-                visible:
-                  id: search-bar-input
-                # iOS does not expose this id (the wait always ran out its 20s there),
-                # and the field is already focused. Android finds it at once.
-                timeout: 5000
-                optional: true
-                label: Wait for the Search screen
-            - tapOn:
-                id: search-bar-input
-                optional: true
-                label: Focus the search field
+          label: Open search
+          file: ../search/open-search.yaml
       - runFlow:
           when:
             true: ${output.searchOpen}
@@ -140,8 +123,9 @@ appId: com.mrh.mobilestore
 
             # Can't be added: Back returns to the Search screen with the old text
             # still typed in (tab bar hidden), so the next candidate is typed
-            # there like the not-found case. Only if Back lands anywhere else
-            # does the next search start again from Home.
+            # there like the not-found case. If Back lands anywhere else,
+            # searchOpen stays false and the next candidate opens search again
+            # (open-search.yaml goes to the Shop tab first).
             - runFlow:
                 when:
                   true: ${!output.pickFound}
@@ -162,15 +146,6 @@ appId: com.mrh.mobilestore
                           id: search-bar-input
                       commands:
                         - evalScript: ${output.searchOpen = true}
-                  - runFlow:
-                      when:
-                        notVisible:
-                          id: search-bar-input
-                      label: Not back on Search - go Home instead
-                      file: ../nav/go-to-tab.yaml
-                      env:
-                        TAB: Home
-                        SCREEN_ID: home-screen
 
 - assertTrue:
     condition: ${output.pickFound}
