@@ -204,6 +204,12 @@ Caches are saved after a run that passes, so the first run is the slowest.
   (one self-contained file — download and open), JUnit XML, and for each failure
   `artifacts/<test>/screenshot.png` + `page-source.xml`;
   `<platform>-logs-attemptN`: Appium, WebdriverIO and emulator / simulator logs.
+- **Live, during the run** — `<platform>-live-diagnostics-attemptN`: after each
+  spec file, its worker log, any new failure screenshots / page sources and a
+  snapshot of the Appium log are uploaded immediately. If the agent is lost
+  ("job was abandoned") and the publish steps never run, this artifact still
+  holds everything up to that point. A spec that fails also prints its worker's
+  error lines straight into the pipeline log.
 
 ### Hosted-agent notes
 

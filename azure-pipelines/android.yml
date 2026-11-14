@@ -165,8 +165,14 @@ jobs:
           ${{ else }}:
             ANDROID_APP_PATH: $(ANDROID_APP_PATH)
           TEST_RETRIES: ${{ parameters.retries }}
+          # A spec whose session could not start is re-run once at the end of the
+          # run (new session, warmed-up device) instead of failing outright.
+          SPEC_FILE_RETRIES: '1'
           WAIT_TIMEOUT: '45000' # shared hosted agents are slower than a dev machine
           LOG_LEVEL: warn
+          # Each finished spec's logs + failure evidence are uploaded as they
+          # happen, so they survive even if the agent is lost mid-run.
+          LIVE_ARTIFACT_NAME: android-live-diagnostics-attempt$(System.JobAttempt)
 
       # ── 6. Reports (always, so failures are diagnosable) ──────────────────
       - task: PublishTestResults@2

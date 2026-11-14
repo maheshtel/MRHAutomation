@@ -84,8 +84,13 @@ export function iosCapabilities(): Caps {
     'appium:autoAcceptAlerts': true,
 
     'appium:newCommandTimeout': 300,
-    'appium:wdaLaunchTimeout': 240_000,
-    'appium:wdaConnectionTimeout': 240_000,
+    // WebDriverAgent startup is bounded so a session either starts or fails
+    // well inside WebdriverIO's single 10 min request window
+    // (connectionRetryTimeout): 2 tries × 3 min, then a clear error.
+    'appium:wdaLaunchTimeout': 180_000,
+    'appium:wdaConnectionTimeout': 180_000,
+    'appium:wdaStartupRetries': 2,
+    'appium:wdaStartupRetryInterval': 10_000,
     'appium:simulatorStartupTimeout': 240_000,
     // React Native keeps animations running (skeleton shimmer); waiting for
     // quiescence would stall every command.

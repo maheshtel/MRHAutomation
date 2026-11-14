@@ -4,6 +4,7 @@
  */
 import { driver } from '@wdio/globals';
 import { App } from '../src/core/app';
+import { echoWorkerErrors, uploadLiveArtifacts } from '../src/core/liveDiagnostics';
 import { createLogger } from '../src/core/logger';
 import { attachVideo, captureFailureEvidence } from '../src/core/reporting';
 import { env } from './env';
@@ -54,8 +55,16 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
   // Explicit waits only (see src/core/elements.ts).
   waitforTimeout: env.run.waitTimeout,
   waitforInterval: 300,
-  connectionRetryTimeout: 300_000,
-  connectionRetryCount: 2,
+  // One request, one long timeout, no client-side retries. Creating the first
+  // session on a fresh CI simulator/emulator (install the app, launch
+  // WebDriverAgent / UiAutomator2) can legitimately take several minutes. A
+  // shorter timeout plus retries made WebdriverIO abandon the in-flight
+  // request and send another while Appium was still busy with the first —
+  // 3 × 5 min = 15 min lost per spec file, and the retries piled load onto
+  // an already slow device. Appium bounds its own startup (see
+  // capabilities.ts), so one 10 min window is enough.
+  connectionRetryTimeout: 600_000,
+  connectionRetryCount: 0,
 
   // Retries, two levels:
   //  • TEST_RETRIES (default 2): a failing test is re-run inside the same
@@ -92,6 +101,16 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
     ],
   ],
 
+  /**
+   * Launcher side, after each spec file's worker exits: surface why it failed
+   * (worker output otherwise only lands in logs/) and, on Azure DevOps, upload
+   * its logs and evidence right away (see src/core/liveDiagnostics.ts).
+   */
+  onWorkerEnd: (cid, exitCode) => {
+    echoWorkerErrors(cid, exitCode);
+    uploadLiveArtifacts(cid);
+  },
+
   /** Runs once per session, after the app has been launched. */
   before: async () => {
     await App.configureSession();
@@ -113,10 +132,16 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
     if (env.run.recordVideo) await driver.startRecordingScreen().catch(() => undefined);
   },
 
-  afterTest: async (test, _context, { passed }) => {
+  afterTest: async (test, _context, { passed, error, duration }) => {
     const attempt = attemptOf(test);
     const title = `${test.parent} — ${test.title}${attempt > 0 ? ` (retry ${attempt})` : ''}`;
-    if (!passed) await captureFailureEvidence(title);
+    if (!passed) {
+      // Printed now (not only in the end-of-run summary) so a CI log shows the
+      // reason even if the job is cut short.
+      const reason = (error as Error | undefined)?.message?.split('\n')[0] ?? 'unknown error';
+      log.error(`✖ ${title} after ${Math.round(duration / 1000)}s: ${reason}`);
+      await captureFailureEvidence(title);
+    }
     if (env.run.recordVideo) {
       const video = await driver.stopRecordingScreen().catch(() => '');
       if (!passed && typeof video === 'string') await attachVideo(video, title);

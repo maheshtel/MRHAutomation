@@ -147,6 +147,21 @@ jobs:
         displayName: Wait for simulator boot + reduce motion
         timeoutInMinutes: 10
 
+      # A freshly booted simulator keeps doing first-boot work for minutes, and
+      # an app's very first launch is its slowest. Pay both here, once, instead
+      # of inside the first Appium session (where it caused session timeouts).
+      - bash: |
+          set -uo pipefail
+          start=$(date +%s)
+          xcrun simctl install "$IOS_UDID" "$IOS_APP_PATH"
+          bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$IOS_APP_PATH/Info.plist")"
+          xcrun simctl launch "$IOS_UDID" "$bundle_id" >/dev/null && sleep 20
+          xcrun simctl terminate "$IOS_UDID" "$bundle_id" || true
+          echo "[warm-up] app installed and launched once in $(( $(date +%s) - start ))s"
+        displayName: Warm up simulator (install + first launch)
+        timeoutInMinutes: 8
+        continueOnError: true
+
       # ── 6. Tests ──────────────────────────────────────────────────────────
       - bash: |
           set -euo pipefail
@@ -174,8 +189,14 @@ jobs:
           IOS_HEADLESS: 'true'
           IOS_PREBUILT_WDA_PATH: $(IOS_PREBUILT_WDA_PATH)
           TEST_RETRIES: ${{ parameters.retries }}
+          # A spec whose session could not start is re-run once at the end of the
+          # run (new session, warmed-up device) instead of failing outright.
+          SPEC_FILE_RETRIES: '1'
           WAIT_TIMEOUT: '45000' # shared hosted agents are slower than a dev machine
           LOG_LEVEL: warn
+          # Each finished spec's logs + failure evidence are uploaded as they
+          # happen, so they survive even if the agent is lost mid-run.
+          LIVE_ARTIFACT_NAME: ios-live-diagnostics-attempt$(System.JobAttempt)
 
       # ── 7. Reports (always, so failures are diagnosable) ──────────────────
       - task: PublishTestResults@2
