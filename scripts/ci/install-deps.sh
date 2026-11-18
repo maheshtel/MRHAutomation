@@ -25,10 +25,11 @@ xcode=""
 if [[ "$os" == Darwin ]]; then xcode=", $(xcodebuild -version 2>/dev/null | sed -n 1p)"; fi
 log "Agent: $os $arch, node $(node -v)$xcode"
 
-npm ci --no-audit --no-fund --prefer-offline --ignore-scripts
+npm ci --no-audit --no-fund --prefer-offline --ignore-scripts --loglevel=error
 npm rebuild esbuild appium --foreground-scripts
 
 [[ "$os" == Darwin ]] || { log "Not macOS — the iOS add-on is not needed"; exit 0; }
+[[ "${SKIP_IOS_ADDON:-}" != true ]] || { log "Android run — the iOS add-on is not needed"; exit 0; }
 
 prebuild_arch="$arch"
 [[ "$arch" == x86_64 ]] && prebuild_arch=x64

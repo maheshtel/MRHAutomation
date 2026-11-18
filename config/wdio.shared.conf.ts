@@ -4,7 +4,7 @@
  */
 import { driver } from '@wdio/globals';
 import { App } from '../src/core/app';
-import { echoWorkerErrors, uploadLiveArtifacts } from '../src/core/liveDiagnostics';
+import { echoWorkerErrors, uploadFailureNow, uploadLiveArtifacts } from '../src/core/liveDiagnostics';
 import { createLogger } from '../src/core/logger';
 import { attachVideo, captureFailureEvidence } from '../src/core/reporting';
 import { env } from './env';
@@ -140,7 +140,8 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
       // reason even if the job is cut short.
       const reason = (error as Error | undefined)?.message?.split('\n')[0] ?? 'unknown error';
       log.error(`✖ ${title} after ${Math.round(duration / 1000)}s: ${reason}`);
-      await captureFailureEvidence(title);
+      const evidence = await captureFailureEvidence(title, (error as Error | undefined)?.stack ?? reason);
+      uploadFailureNow(evidence);
     }
     if (env.run.recordVideo) {
       const video = await driver.stopRecordingScreen().catch(() => '');

@@ -26,12 +26,20 @@ const safeName = (value: string) => value.replace(/[^a-z0-9-_]+/gi, '_').slice(0
  * turns "element not found" into a fixable locator problem: it shows exactly
  * which resource-ids / names were on screen at the moment of failure.
  */
-export async function captureFailureEvidence(testTitle: string): Promise<void> {
+/** Saves screenshot, page source and the error; returns the evidence folder. */
+export async function captureFailureEvidence(
+  testTitle: string,
+  reason?: string,
+): Promise<string> {
   const dir = path.join(
     env.paths.artifacts,
     `${new Date().toISOString().replace(/[:.]/g, '-')}_${safeName(testTitle)}`,
   );
   mkdirSync(dir, { recursive: true });
+  if (reason) writeFileSync(path.join(dir, 'error.txt'), `${testTitle}
+
+${reason}
+`, 'utf8');
 
   try {
     const screenshot = await driver.takeScreenshot();
@@ -50,6 +58,7 @@ export async function captureFailureEvidence(testTitle: string): Promise<void> {
   }
 
   log.error(`Failure evidence saved to ${dir}`);
+  return dir;
 }
 
 export async function attachVideo(base64Video: string, testTitle: string): Promise<void> {

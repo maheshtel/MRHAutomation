@@ -39,7 +39,7 @@ parameters:
   - name: retries
     displayName: Retries per failing test
     type: number
-    default: 2
+    default: 1
   - name: appZipUrl
     displayName: Simulator .app.zip URL
     type: string
@@ -68,6 +68,8 @@ variables:
     value: 'true'
   - name: NODE_VERSION
     value: '22.x'
+  - name: NPM_CONFIG_CACHE # npm reads this; cached by the 'Cache npm downloads' step
+    value: $(Pipeline.Workspace)/.npm
   - name: WDA_BUILD_DIR
     value: $(Pipeline.Workspace)/wda-build
 
@@ -109,18 +111,21 @@ jobs:
         timeoutInMinutes: 10
 
       # ── 2. Dependencies (cached node_modules = no npm install) ─────────────
+      # Cache npm's compressed downloads, not node_modules: restoring the
+      # ~50k-file node_modules took as long as installing it (~22 min) on a
+      # hosted Mac. With the download cache, npm ci installs offline.
       - task: Cache@2
-        displayName: Cache node_modules
+        displayName: Cache npm downloads
         inputs:
-          key: 'node_modules | "$(Agent.OS)" | "$(Agent.OSArchitecture)" | "$(NODE_VERSION)" | package-lock.json'
-          path: node_modules
-          cacheHitVar: NODE_MODULES_RESTORED
+          key: 'npm | "$(Agent.OS)" | "$(Agent.OSArchitecture)" | package-lock.json'
+          restoreKeys: |
+            npm | "$(Agent.OS)" | "$(Agent.OSArchitecture)"
+          path: $(NPM_CONFIG_CACHE)
 
       # npm ci without install scripts, then only the ones the suite needs; the
       # XCUITest add-on is taken prebuilt or compiled tolerantly (see script).
       - bash: ./scripts/ci/install-deps.sh
         displayName: Install test suite (WebdriverIO, Appium, XCUITest)
-        condition: and(succeeded(), ne(variables.NODE_MODULES_RESTORED, 'true'))
 
       # ── 3. WebDriverAgent: compiled here once, cached, only LAUNCHED by Appium ─
       # (Compiling it inside the first session outlasted wdaLaunchTimeout.)

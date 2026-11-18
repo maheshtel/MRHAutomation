@@ -56,6 +56,37 @@ export function echoWorkerErrors(cid: string, exitCode: number): void {
   console.log(`──── full log: logs/${path.basename(file)} ────\n`);
 }
 
+/**
+ * Worker side, right after a test fails: upload that failure's evidence plus
+ * snapshots of the worker and Appium logs NOW, not when the spec file ends.
+ * A spec can run for many minutes after its first failure (retries, later
+ * tests); if the agent is lost meanwhile, this is what survives. The worker's
+ * console output reaches the pipeline log (prefixed with its cid), and Azure
+ * DevOps picks up `##vso[...]` commands anywhere in a line.
+ */
+export function uploadFailureNow(evidenceDir: string): void {
+  if (!onAzure) return;
+  const stamp = path.basename(evidenceDir);
+  const folder = path.relative(env.paths.reports, evidenceDir).replace(/\\/g, '/');
+  for (const file of filesUnder(evidenceDir)) upload(file, folder);
+
+  const cid = process.env.WDIO_WORKER_ID;
+  const sources = [
+    cid ? workerLog(cid) : undefined,
+    path.join(env.paths.logs, 'wdio-appium.log'),
+  ].filter((file): file is string => Boolean(file && existsSync(file)));
+  for (const source of sources) {
+    const copy = path.join(evidenceDir, `${path.basename(source, '.log')}-at-failure.log`);
+    try {
+      copyFileSync(source, copy);
+      upload(copy, folder);
+    } catch {
+      // Best effort: never let diagnostics fail a test hook.
+    }
+  }
+  console.log(`[live-diagnostics] uploaded failure evidence ${stamp}`);
+}
+
 /** Upload this spec's worker log, new failure evidence and an Appium log snapshot. */
 export function uploadLiveArtifacts(cid: string): void {
   if (!onAzure) return;

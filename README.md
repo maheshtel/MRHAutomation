@@ -187,7 +187,7 @@ retries (default 2), app URL, device / image.
 | Optimisation | Android | iOS |
 | --- | --- | --- |
 | Device boots in the background while deps install and the app downloads | ✔ | ✔ |
-| `node_modules` cached (Appium + drivers included) — no `npm ci` on a hit | ✔ | ✔ |
+| npm download cache → `npm ci` installs offline (restoring all of `node_modules` was as slow as installing it) | ✔ | ✔ |
 | Headless device | `-no-window -no-audio -no-boot-anim -no-snapshot`, software GPU | `simctl boot` (no Simulator window) + `isHeadless` |
 | Animations off | 3 animation scales = 0 (+ `disableWindowAnimation`) | Reduce Motion + `reduceMotion` |
 | Emulator system image cached between runs | ✔ | — |
