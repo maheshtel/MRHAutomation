@@ -57,10 +57,10 @@ parameters:
     type: string
     default: ' '
   - name: vmImage
-    displayName: Hosted macOS image
+    displayName: Hosted macOS image (macOS-15-arm64 = Apple silicon, faster simulator)
     type: string
     default: macOS-latest
-    values: [macOS-latest, macOS-15, macOS-14]
+    values: [macOS-latest, macOS-15, macOS-15-arm64, macOS-14]
 
 variables:
   - group: mrh-e2e
@@ -116,7 +116,9 @@ jobs:
           path: node_modules
           cacheHitVar: NODE_MODULES_RESTORED
 
-      - bash: npm ci --no-audit --no-fund --prefer-offline
+      # npm ci without install scripts, then only the ones the suite needs; the
+      # XCUITest add-on is taken prebuilt or compiled tolerantly (see script).
+      - bash: ./scripts/ci/install-deps.sh
         displayName: Install test suite (WebdriverIO, Appium, XCUITest)
         condition: and(succeeded(), ne(variables.NODE_MODULES_RESTORED, 'true'))
 

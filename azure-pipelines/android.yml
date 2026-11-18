@@ -119,7 +119,9 @@ jobs:
           path: node_modules
           cacheHitVar: NODE_MODULES_RESTORED
 
-      - bash: npm ci --no-audit --no-fund --prefer-offline
+      # npm ci without install scripts, then only the ones the suite needs; the
+      # XCUITest add-on is taken prebuilt or compiled tolerantly (see script).
+      - bash: ./scripts/ci/install-deps.sh
         displayName: Install test suite (WebdriverIO, Appium, UiAutomator2)
         condition: and(succeeded(), ne(variables.NODE_MODULES_RESTORED, 'true'))
 
