@@ -60,7 +60,7 @@ else
   rm -f "$archive"
 
   # The bundle name varies (e.g. "MountainRose 3.app"), so find it.
-  target="$(find "$extract_dir" -maxdepth 3 -type d -name '*.app' -not -path '*/__MACOSX/*' | head -1)"
+  target="$(find "$extract_dir" -maxdepth 3 -type d -name '*.app' -not -path '*/__MACOSX/*' | sed -n 1p)"
   [[ -n "$target" ]] || { log "No .app bundle inside the zip"; exit 1; }
 
   # A device (iPhoneOS) build cannot be installed on a simulator.

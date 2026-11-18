@@ -125,7 +125,7 @@ jobs:
       # ── 3. WebDriverAgent: compiled here once, cached, only LAUNCHED by Appium ─
       # (Compiling it inside the first session outlasted wdaLaunchTimeout.)
       - bash: |
-          v="$(xcodebuild -version | head -1 | tr -cd '0-9.')"
+          v="$(xcodebuild -version | sed -n 1p | tr -cd '0-9.')"
           echo "Xcode $v"
           echo "##vso[task.setvariable variable=XCODE_VERSION]$v"
         displayName: Detect Xcode version

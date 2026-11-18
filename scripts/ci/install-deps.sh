@@ -22,7 +22,7 @@ fail() { echo "##vso[task.logissue type=error]$*"; exit 1; }
 os="$(uname -s)"
 arch="$(uname -m)"
 xcode=""
-if [[ "$os" == Darwin ]]; then xcode=", $(xcodebuild -version 2>/dev/null | head -1)"; fi
+if [[ "$os" == Darwin ]]; then xcode=", $(xcodebuild -version 2>/dev/null | sed -n 1p)"; fi
 log "Agent: $os $arch, node $(node -v)$xcode"
 
 npm ci --no-audit --no-fund --prefer-offline --ignore-scripts
@@ -43,7 +43,7 @@ while IFS= read -r dir; do
   build_log="logs/coresim-build.log"
   mkdir -p logs
   if ! (cd "$dir" && npm run install --foreground-scripts) >"$build_log" 2>&1; then
-    grep -E "error:|Error:|gyp ERR" "$build_log" | head -40 || tail -60 "$build_log"
+    grep -E "error:|Error:|gyp ERR" "$build_log" | sed -n 1,40p || tail -60 "$build_log"
     fail "Building @appium/coresim failed on a $arch Mac — see the lines above. An Apple-silicon agent uses a prebuilt binary and avoids this (vmImage: macOS-15-arm64)."
   fi
   compgen -G "$dir/build/Release/*.node" >/dev/null || fail "coresim compiled but produced no .node file"

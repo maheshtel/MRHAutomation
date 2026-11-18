@@ -24,7 +24,7 @@ fail() { echo "##vso[task.logissue type=error]$*"; exit 1; }
 
 # The xcuitest driver ships its own WebDriverAgent copy (version-matched).
 project="$(find "$suite_dir/node_modules" -maxdepth 5 -type d \
-  -path '*appium-webdriveragent/WebDriverAgent.xcodeproj' | head -1)"
+  -path '*appium-webdriveragent/WebDriverAgent.xcodeproj' | sed -n 1p)"
 [[ -n "$project" ]] || fail "WebDriverAgent.xcodeproj not found under node_modules (npm ci missing?)"
 log "Project: $project"
 log "$(xcodebuild -version | tr '\n' ' ')"
