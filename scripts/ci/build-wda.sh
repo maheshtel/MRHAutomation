@@ -32,13 +32,17 @@ log "$(xcodebuild -version | tr '\n' ' ')"
 if compgen -G "$out/Build/Products/*.xctestrun" >/dev/null; then
   log "Using cached build in $out"
 else
-  log "Compiling WebDriverAgent (build-for-testing, generic iOS Simulator)…"
+  # Only the agent's own simulator architecture: the generic destination
+  # otherwise compiles arm64 AND x86_64, doubling the build time.
+  sim_arch="$(uname -m)"
+  log "Compiling WebDriverAgent (build-for-testing, iOS Simulator, $sim_arch)…"
   start=$(date +%s)
   if ! xcodebuild build-for-testing \
       -project "$project" \
       -scheme WebDriverAgentRunner \
       -destination 'generic/platform=iOS Simulator' \
       -derivedDataPath "$out" \
+      ARCHS="$sim_arch" ONLY_ACTIVE_ARCH=NO \
       CODE_SIGNING_ALLOWED=NO \
       COMPILER_INDEX_STORE_ENABLE=NO \
       GCC_TREAT_WARNINGS_AS_ERRORS=NO \
