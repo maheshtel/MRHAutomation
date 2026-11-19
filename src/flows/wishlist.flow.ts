@@ -11,7 +11,7 @@ export const WishlistFlow = {
     await TabBar.open('Account');
     await AccountScreen.waitForSignedIn();
     await AccountScreen.openMyLists();
-    await WishlistsScreen.waitForContent();
+    await WishlistsScreen.waitForOpened();
   },
 
   /** Names of the lists on My Lists that start with `prefix`. */
@@ -32,8 +32,10 @@ export const WishlistFlow = {
 
   /** Return an existing test list's name, creating `fallbackName` if none exists. */
   async ensureList(prefix: string, fallbackName: string): Promise<string> {
-    const existing = await WishlistFlow.listsStartingWith(prefix);
-    if (existing.length > 0) return existing[0];
+    await WishlistFlow.openMyLists();
+    // Any one test list will do, so stop at the first instead of scanning all.
+    const existing = await WishlistsScreen.firstListStartingWith(prefix);
+    if (existing) return existing;
     await WishlistsScreen.createList(fallbackName);
     return fallbackName;
   },

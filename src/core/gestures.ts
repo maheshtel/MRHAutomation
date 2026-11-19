@@ -56,11 +56,18 @@ export async function tapAt(point: Point): Promise<void> {
 
 /**
  * Scroll the screen content. `down` reveals content further down the page
- * (finger moves up). `distance` is a fraction of the screen height.
+ * (finger moves up). `distance` is a fraction of the screen height. `xFraction`
+ * is where across the screen the finger travels. On Android a drag that starts
+ * on a TextInput is kept by the input and does not scroll the list, so screens
+ * with inputs in the middle column (the cart's quantity stepper) move it aside.
  */
-export async function scroll(direction: Direction, distance = 0.45): Promise<void> {
+export async function scroll(
+  direction: Direction,
+  distance = 0.45,
+  xFraction = 0.5,
+): Promise<void> {
   const { width, height } = await windowSize();
-  const x = width / 2;
+  const x = width * xFraction;
   const span = height * distance;
   const start = direction === 'down' ? height * SAFE_BOTTOM - 10 : height * SAFE_TOP + 10;
   const end = direction === 'down' ? start - span : start + span;

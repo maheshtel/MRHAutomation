@@ -21,15 +21,12 @@ import { CartFlow } from '../../src/flows/cart.flow';
 import { WishlistFlow } from '../../src/flows/wishlist.flow';
 import { CartScreen } from '../../src/screens/CartScreen';
 import { TabBar } from '../../src/screens/TabBar';
-import { WishlistsScreen } from '../../src/screens/WishlistsScreen';
 import { catalog, newWishlistName, WISHLIST_PREFIX } from '../data/catalog';
 import { users } from '../data/users';
 
+// No sign-out teardown: the next spec in a full run (Logout) starts by signing
+// in, and every spec that needs a guest signs out in its own "Given".
 describe('Feature: Cleanup @regression', () => {
-  after(async () => {
-    await AuthFlow.signOutQuietly();
-  });
-
   it('Scenario: Empty the cart and delete the test list', async () => {
     await addFeature('Cleanup');
     await addSeverity('normal');
@@ -67,9 +64,11 @@ describe('Feature: Cleanup @regression', () => {
     });
 
     await Then('the list no longer appears in My Lists', async () => {
-      // listsStartingWith re-opens My Lists, so this reads fresh server data.
-      expect(await WishlistFlow.listsStartingWith(WISHLIST_PREFIX)).toEqual([]);
-      expect(await WishlistsScreen.hasList(listName)).toBe(false);
+      // listsStartingWith re-opens My Lists, so this reads fresh server data. One
+      // scan of the whole list answers both checks.
+      const remaining = await WishlistFlow.listsStartingWith(WISHLIST_PREFIX);
+      expect(remaining).not.toContain(listName);
+      expect(remaining).toEqual([]);
     });
   });
 });

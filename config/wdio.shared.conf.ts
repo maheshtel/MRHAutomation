@@ -29,18 +29,36 @@ const SPEC_ORDER = [
 
 const specPath = (name: string) => `../test/specs/${name}.e2e.ts`;
 
+/**
+ * Specs for a multi-spec run. With SHARED_SESSION (default) they are one group,
+ * which WebdriverIO runs in ONE worker and ONE Appium session. A new session per
+ * spec file (pm clear or reinstall, UiAutomator2/WDA start, app cold start,
+ * sign-in again) cost ~45 s per spec on an emulator, a third of a full run.
+ * SHARED_SESSION=false restores one session per spec file.
+ */
+const specGroup = (names: readonly string[]) =>
+  env.run.sharedSession ? [names.map(specPath)] : names.map(specPath);
+
 /** Mocha's test object (spread into WebdriverIO hooks) carries the attempt number. */
 const attemptOf = (test: unknown): number =>
   (test as { _currentRetry?: number })._currentRetry ?? 0;
+
+/**
+ * Whether the last finished test attempt failed. In a shared session the next
+ * spec must not start from the screen a failed spec left behind (an open sheet,
+ * a half-typed field), so beforeSuite restarts the app then. Passing specs hand
+ * over directly: every spec's "Given" steps navigate to their own start point.
+ */
+let lastAttemptFailed = false;
 
 export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
   runner: 'local',
   tsConfigPath: '../tsconfig.json',
 
-  specs: SPEC_ORDER.map(specPath),
+  specs: specGroup(SPEC_ORDER),
   suites: {
     ...Object.fromEntries(SPEC_ORDER.map((name) => [name, [specPath(name)]])),
-    smoke: ['login', 'navigation', 'cart', 'logout'].map(specPath),
+    smoke: specGroup(['login', 'navigation', 'cart', 'logout']),
   },
 
   // One device = one session at a time. Raise with MAX_INSTANCES only when
@@ -71,6 +89,8 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
   //    session, after the app is restarted (see beforeTest below).
   //  • SPEC_FILE_RETRIES (default 0): the whole spec file is re-run in a
   //    brand-new session — for device/driver crashes a restart can't fix.
+  //    With SHARED_SESSION the "file" is the whole group, so a retry re-runs
+  //    every spec in it. It only happens when something already failed.
   specFileRetries: env.run.specFileRetries,
   specFileRetriesDeferred: true,
 
@@ -118,6 +138,19 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
   },
 
   /**
+   * Runs before each spec file's top-level describe. In a shared session, a
+   * spec that follows a failure gets a restarted app (data kept), the same
+   * treatment a retry gets in beforeTest.
+   */
+  beforeSuite: async (suite) => {
+    // Top-level describe only (a nested describe has a parent title).
+    if (!lastAttemptFailed || suite.parent) return;
+    log.warn(`Previous spec failed; restarting the app before "${suite.title}"`);
+    await App.restart();
+    lastAttemptFailed = false;
+  },
+
+  /**
    * Runs before every attempt of every test. A retry must not start from the
    * screen the failed attempt left behind (an open sheet, a half-typed field),
    * so the app is restarted first. Data is kept: a signed-in user stays signed
@@ -135,6 +168,7 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
   afterTest: async (test, _context, { passed, error, duration }) => {
     const attempt = attemptOf(test);
     const title = `${test.parent} — ${test.title}${attempt > 0 ? ` (retry ${attempt})` : ''}`;
+    lastAttemptFailed = !passed;
     if (!passed) {
       // Printed now (not only in the end-of-run summary) so a CI log shows the
       // reason even if the job is cut short.

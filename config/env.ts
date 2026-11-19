@@ -163,6 +163,9 @@ export const env = {
     // before it is reported as failed.
     retries: int('TEST_RETRIES', 2),
     specFileRetries: int('SPEC_FILE_RETRIES', 0),
+    // Run a multi-spec run in one Appium session instead of one per spec file
+    // (see specGroup in wdio.shared.conf.ts).
+    sharedSession: bool('SHARED_SESSION', true),
     maxInstances: Math.max(1, int('MAX_INSTANCES', 1)),
     logLevel: oneOf(
       'LOG_LEVEL',

@@ -72,6 +72,14 @@ class WishlistsScreenObject extends BaseScreen {
     deleteConfirm: 'wishlist-delete-sheet-confirm',
   };
 
+  /**
+   * True only while the list is known to sit at its top: right after My Lists
+   * was opened, before anything has swiped it. A scan then starts where it is
+   * instead of swiping up first, which also avoids the pull-to-refresh that a
+   * swipe at the top triggers. Anything that may scroll the list clears it.
+   */
+  private atTop = false;
+
   protected root() {
     return by.testId(this.ids.list);
   }
@@ -87,6 +95,13 @@ class WishlistsScreenObject extends BaseScreen {
       { lists: by.testIdMatches('wishlist-card-[0-9]+'), empty: by.testId(this.ids.empty) },
       { timeout, name: 'list cards or the empty state' },
     );
+  }
+
+  /** waitForContent for a My Lists screen that was just opened (so it is at the top). */
+  async waitForOpened(timeout = 60_000): Promise<'lists' | 'empty'> {
+    const state = await this.waitForContent(timeout);
+    this.atTop = true;
+    return state;
   }
 
   // ── Scanning ───────────────────────────────────────────────────────────────
@@ -119,15 +134,19 @@ class WishlistsScreenObject extends BaseScreen {
     return cards;
   }
 
-  /** Swipe up until the visible cards stop changing (top reached). */
-  private async scrollToTop(): Promise<void> {
-    let previous = this.signature(await this.settledCards());
+  /** Swipe up until the visible cards stop changing (top reached); returns them. */
+  private async scrollToTop(): Promise<Card[]> {
+    let cards = await this.settledCards();
+    let previous = this.signature(cards);
     for (let i = 0; i < MAX_SCAN_SWIPES; i += 1) {
       await scroll('up', 0.6);
-      const current = this.signature(await this.settledCards());
-      if (current === previous) return;
+      cards = await this.settledCards();
+      const current = this.signature(cards);
+      if (current === previous) break;
       previous = current;
     }
+    this.atTop = true;
+    return cards;
   }
 
   /**
@@ -137,14 +156,17 @@ class WishlistsScreenObject extends BaseScreen {
    * moving (the end, after giving pagination a moment to append more).
    */
   private async scan(visit: (card: Card) => boolean): Promise<Card | undefined> {
-    const onScreen = (await this.settledCards()).find(visit);
+    const onScreenCards = await this.settledCards();
+    const onScreen = onScreenCards.find(visit);
     if (onScreen) return onScreen;
 
-    await this.scrollToTop();
+    // Already at the top (just opened): the cards on screen ARE the first page.
+    let cards = this.atTop ? onScreenCards : await this.scrollToTop();
+    this.atTop = false; // the walk below swipes away from the top
     let previous = '';
     let stillCount = 0;
     for (let i = 0; i < MAX_SCAN_SWIPES; i += 1) {
-      const cards = await this.settledCards();
+      if (i > 0) cards = await this.settledCards();
       const hit = cards.find(visit);
       if (hit) return hit;
       const current = this.signature(cards);
@@ -163,7 +185,10 @@ class WishlistsScreenObject extends BaseScreen {
 
   private async findCard(name: string): Promise<Card | undefined> {
     const card = await this.scan((c) => c.name === name);
-    if (card) await bringAboveTabBar(await this.element(card));
+    if (card) {
+      await bringAboveTabBar(await this.element(card));
+      this.atTop = false; // bringAboveTabBar may have scrolled
+    }
     return card;
   }
 
@@ -177,6 +202,11 @@ class WishlistsScreenObject extends BaseScreen {
 
   async hasList(name: string): Promise<boolean> {
     return (await this.findCard(name)) !== undefined;
+  }
+
+  /** Name of the first list starting with `prefix`; stops scanning at the first match. */
+  async firstListStartingWith(prefix: string): Promise<string | undefined> {
+    return (await this.scan((card) => card.name.startsWith(prefix)))?.name;
   }
 
   /** Every list name on the account (scans the whole list). */
@@ -234,6 +264,7 @@ class WishlistsScreenObject extends BaseScreen {
       returnKey: 'done', // name field: returnKeyType="done" runs the same handleSubmit
     });
     await waitForGone(by.testId(this.ids.formInput), { name: 'create list sheet' });
+    this.atTop = false; // the list re-rendered with a new card; don't assume its offset
     log.info(`Created list "${name}"`);
   }
 

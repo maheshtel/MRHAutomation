@@ -8,8 +8,11 @@
  *
  * `tapNested` therefore:
  *   1. taps the child by its testID when the platform exposes it (Android), and
- *   2. otherwise taps the child's position, given as an offset from the
+ *   2. on iOS, taps the child's position, given as an offset from the
  *      container's edges in points (iOS points == React Native dp).
+ * On Android a child that cannot be found is off screen, so it throws rather
+ * than guess. Either way the container must be fully on screen first: an offset
+ * from a clipped container lands in the wrong place.
  *
  * The offsets are not guesses: whenever the child IS reachable, its real offset
  * is measured and logged at debug level (`E2E_LOG_LEVEL=debug`), so the iOS
@@ -90,6 +93,16 @@ export async function tapNested(
     });
     await child.click();
     return;
+  }
+
+  // Android exposes nested children, so a missing child here is off screen (or
+  // the container is clipped by a scrolled list), not hidden by the platform.
+  // An offset from a clipped container's rect lands on the wrong spot, and the
+  // tap "succeeds" without doing anything. Fail with the real reason instead.
+  if (isAndroid()) {
+    throw new Error(
+      `"${childTestId}" (${name}) is not on screen; scroll its container fully into view first`,
+    );
   }
 
   const scale = await pixelsPerPoint();

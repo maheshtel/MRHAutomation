@@ -22,7 +22,7 @@
  * DSCartItem's root is `accessible`, so iOS hides the delete button and the
  * stepper inside it; see src/core/nested.ts for how those are reached.
  */
-import { $$, driver } from '@wdio/globals';
+import { $, $$, driver } from '@wdio/globals';
 import { env } from '../../config/env';
 import {
   getLabel,
@@ -33,7 +33,7 @@ import {
   waitForAny,
   waitForDisplayed,
 } from '../core/elements';
-import { scrollUntilVisible } from '../core/gestures';
+import { scroll, scrollUntilVisible } from '../core/gestures';
 import { tapPastKeyboard } from '../core/keyboard';
 import { by } from '../core/locators';
 import { type EdgeOffset, tapNested } from '../core/nested';
@@ -56,6 +56,26 @@ const ROW_CONTROLS: Record<'delete' | 'increase' | 'decrease', EdgeOffset> = {
 
 /** The floating order summary covers the lower part of the cart. */
 const CART_SAFE_BOTTOM = 0.55;
+
+/**
+ * The app scrolls the cart list by itself: 600 ms after the cart settles, and
+ * again after every change in line count, it scrolls the order summary (the
+ * list footer) into view (CartScreen.tsx, SCROLL_SETTLE_MS + revealTarget). When
+ * the cart is taller than the screen, that pushes the first row's header (and
+ * its trash button) above the list. The list counts as "at rest" once the first
+ * row has not moved for longer than that delay plus the scroll animation.
+ */
+const LIST_REST_INTERVAL_MS = 1_000;
+const LIST_REST_TIMEOUT_MS = 10_000;
+/** Swipes allowed to bring the first row back to the top of the list. */
+const MAX_SCROLL_UP_SWIPES = 6;
+/**
+ * Where across the screen to swipe the cart list: the rows' left column
+ * (product image, Price label). The default centre line runs through the
+ * quantity stepper's TextInput, and on Android a drag that starts on it does
+ * not scroll the list.
+ */
+const LIST_SWIPE_X = 0.12;
 
 /** "…, quantity 3, price …" → 3 */
 const parseQuantity = (label: string): number | undefined => {
@@ -122,6 +142,71 @@ class CartScreenObject extends BaseScreen {
     return rows[0];
   }
 
+  /** testID + on-screen rect of the first row, for detecting movement. */
+  private async firstLineSignature(): Promise<string | undefined> {
+    try {
+      const rows = await $$(this.lineItems()).getElements();
+      if (rows.length === 0) return undefined;
+      const row = rows[0];
+      const { x, y } = await row.getLocation();
+      const { width, height } = await row.getSize();
+      return `${await getTestId(row)}@${x},${y} ${width}x${height}`;
+    } catch {
+      // The list re-rendered between the find and the read; treat it as movement.
+      return undefined;
+    }
+  }
+
+  /** Wait until the first row stops moving, i.e. the app's own scroll has finished. */
+  private async waitForListAtRest(): Promise<string | undefined> {
+    let previous = await this.firstLineSignature();
+    const deadline = Date.now() + LIST_REST_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      await driver.pause(LIST_REST_INTERVAL_MS);
+      const current = await this.firstLineSignature();
+      if (current !== undefined && current === previous) return current;
+      previous = current;
+    }
+    throw new Error(`The cart list kept moving for ${LIST_REST_TIMEOUT_MS / 1000}s`);
+  }
+
+  /**
+   * The first row, scrolled fully into view. Its controls (trash, stepper) are
+   * tapped by testID on Android and by offset from the row on iOS, and both need
+   * the whole row on screen. If the row is clipped, the control is missing on
+   * Android and the iOS offset is measured from a cut-off rect.
+   */
+  private async revealFirstLine(): Promise<WebdriverIO.Element> {
+    let resting = await this.waitForListAtRest();
+    for (let swipe = 0; swipe < MAX_SCROLL_UP_SWIPES; swipe += 1) {
+      if (await this.firstLineTopInView()) return this.firstLine();
+      await scroll('up', 0.45, LIST_SWIPE_X);
+      const after = await this.waitForListAtRest();
+      if (after === resting) {
+        throw new Error('Swiping up did not scroll the cart list; the first row is still cut off');
+      }
+      resting = after;
+    }
+    throw new Error(`The first cart row was not at the top after ${MAX_SCROLL_UP_SWIPES} swipes`);
+  }
+
+  /**
+   * True when the first row's top edge is inside the list. At the top of the
+   * list the row sits below the list's edge (the list has 2 dp of top padding).
+   * Once the list scrolls, Android clips the row's rect to the list's edge and
+   * iOS reports it above that edge. Checking first avoids a swipe at the top of
+   * the list, which would start a pull-to-refresh.
+   */
+  private async firstLineTopInView(): Promise<boolean> {
+    try {
+      const list = await $(by.testId('cart-list')).getLocation();
+      const row = await (await this.firstLine()).getLocation();
+      return row.y > list.y;
+    } catch {
+      return false;
+    }
+  }
+
   // ── Quantity ───────────────────────────────────────────────────────────────
 
   async firstLineQuantity(): Promise<number> {
@@ -143,7 +228,7 @@ class CartScreenObject extends BaseScreen {
   private async stepFirstLine(control: 'increase' | 'decrease', suffix: 'inc' | 'dec') {
     const before = await this.firstLineQuantity();
     const expected = control === 'increase' ? before + 1 : before - 1;
-    const row = await this.firstLine();
+    const row = await this.revealFirstLine();
     await tapNested(
       row,
       `${await getTestId(row)}-stepper-${suffix}`,
@@ -172,7 +257,7 @@ class CartScreenObject extends BaseScreen {
 
   /** Remove the first line item and wait for the list to reflect it. */
   async removeFirstLine(): Promise<void> {
-    const row = await this.firstLine();
+    const row = await this.revealFirstLine();
     const before = await this.lineItemCount();
     await tapNested(row, `${await getTestId(row)}-delete`, ROW_CONTROLS.delete, 'delete button');
 

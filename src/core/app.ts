@@ -31,12 +31,18 @@ export const App = {
    * Session-level settings. UiAutomator2 and XCUITest both wait for the UI to
    * go idle before every command; React Native's looping skeleton animations
    * mean it never does, so every command would pay the full idle timeout.
+   *
+   * Android `waitForSelectorTimeout`: when a cached element goes stale (a sheet
+   * or overlay that just closed), UiAutomator2 re-finds it through its
+   * UiSelector and waits up to this long (default 10 s) before answering
+   * "stale". Every wait in this suite polls explicitly (src/core/elements.ts),
+   * so that built-in wait only added ~11 s to each check of a vanished element.
    */
   async configureSession(): Promise<void> {
     try {
       await driver.updateSettings(
         isAndroid()
-          ? { waitForIdleTimeout: 100 }
+          ? { waitForIdleTimeout: 100, waitForSelectorTimeout: 0 }
           : {
               waitForIdleTimeout: 0,
               animationCoolOffTimeout: 0,
