@@ -45,7 +45,7 @@ while IFS= read -r dir; do
   mkdir -p logs
   if ! (cd "$dir" && npm run install --foreground-scripts) >"$build_log" 2>&1; then
     grep -E "error:|Error:|gyp ERR" "$build_log" | sed -n 1,40p || tail -60 "$build_log"
-    fail "Building @appium/coresim failed on a $arch Mac — see the lines above. An Apple-silicon agent uses a prebuilt binary and avoids this (vmImage: macOS-15-arm64)."
+    fail "Building @appium/coresim failed on a $arch Mac — see the lines above. An Apple-silicon (arm64) agent would use the prebuilt binary instead."
   fi
   compgen -G "$dir/build/Release/*.node" >/dev/null || fail "coresim compiled but produced no .node file"
   log "coresim: compiled ($dir/build/Release)"

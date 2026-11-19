@@ -57,10 +57,10 @@ parameters:
     type: string
     default: ' '
   - name: vmImage
-    displayName: Hosted macOS image (macOS-15-arm64 = Apple silicon, faster simulator)
+    displayName: Hosted macOS image
     type: string
-    default: macOS-15-arm64 # Apple silicon; macOS-latest was an Intel Mac that starved and dropped out
-    values: [macOS-latest, macOS-15, macOS-15-arm64, macOS-14]
+    default: macOS-latest
+    values: [macOS-latest, macOS-15, macOS-14]
 
 variables:
   - group: mrh-e2e
