@@ -20,7 +20,7 @@
  */
 import { $$, driver } from '@wdio/globals';
 import { env } from '../../config/env';
-import { isShown, waitForDisplayed, type WaitOptions } from './elements';
+import { isShown, screenSize, waitForDisplayed, type WaitOptions } from './elements';
 import { swipe } from './gestures';
 import { createLogger } from './logger';
 import type { Selector } from './locators';
@@ -133,7 +133,7 @@ export async function tapPastKeyboard(
       if (covered && lifts < 3) {
         lifts += 1;
         log.info(`${name} is under the keyboard (bottom ${bottom}, top ${keyboardTop}) — lifting it`);
-        const { width } = await driver.getWindowSize();
+        const { width } = await screenSize();
         const from = { x: width / 2, y: (keyboardTop as number) - 24 };
         const distance = Math.min((bottom as number) - (keyboardTop as number) + 48, from.y * 0.5);
         await swipe(from, { x: from.x, y: from.y - distance }, 500);

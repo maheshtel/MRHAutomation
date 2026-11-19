@@ -37,7 +37,14 @@ export const App = {
       await driver.updateSettings(
         isAndroid()
           ? { waitForIdleTimeout: 100 }
-          : { waitForIdleTimeout: 0, animationCoolOffTimeout: 0 },
+          : {
+              waitForIdleTimeout: 0,
+              animationCoolOffTimeout: 0,
+              // Computing `visible` is the most expensive part of an iOS page
+              // source (41 s per Home read on a busy CI Mac). pageSource.ts judges
+              // on-screen by frame instead, so leave it out.
+              pageSourceExcludedAttributes: 'visible',
+            },
       );
     } catch (error) {
       log.warn('Could not apply session settings', error);

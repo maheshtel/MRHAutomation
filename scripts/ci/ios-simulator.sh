@@ -31,9 +31,16 @@ start() {
       const all = JSON.parse(s).runtimes.filter((r) => r.isAvailable && r.platform === "iOS");
       const want = process.env.WANT;
       const byVersion = (a, b) => a.version.localeCompare(b.version, undefined, { numeric: true });
-      const pick = want
-        ? all.find((r) => r.version === want || r.version.startsWith(want + "."))
-        : all.sort(byVersion).pop();
+      // "18" = newest 18.x; "18.5" = exactly that. Not installed → newest
+      // runtime, with a warning, rather than failing the whole run.
+      const matching = want
+        ? all.filter((r) => r.version === want || r.version.startsWith(want + ".")).sort(byVersion)
+        : [];
+      if (want && matching.length === 0) {
+        console.error("##vso[task.logissue type=warning]iOS " + want + " runtime not installed (have: " +
+          all.map((r) => r.version).join(", ") + ") — using the newest instead.");
+      }
+      const pick = matching.length ? matching.pop() : all.sort(byVersion).pop();
       if (!pick) {
         console.error("No matching iOS runtime. Installed: " + all.map((r) => r.version).join(", "));
         process.exit(1);

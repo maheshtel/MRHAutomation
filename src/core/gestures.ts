@@ -5,7 +5,7 @@
  * vertical screens and "the first ScrollView" is frequently the wrong one.
  */
 import { driver } from '@wdio/globals';
-import { firstVisible } from './elements';
+import { firstVisible, screenSize } from './elements';
 import { createLogger } from './logger';
 import type { Selector } from './locators';
 
@@ -27,7 +27,7 @@ const SAFE_BOTTOM = 0.78;
 const SAFE_TOP = 0.18;
 
 async function windowSize() {
-  return driver.getWindowSize();
+  return screenSize();
 }
 
 export async function swipe(from: Point, to: Point, durationMs = 450): Promise<void> {

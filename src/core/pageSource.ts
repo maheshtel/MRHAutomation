@@ -66,13 +66,19 @@ function appFrame(tags: string[]): Frame {
 }
 
 /**
- * Same rule as `isShown` in elements.ts: trust `visible`, except for nodes that
- * are not accessibility elements (accessible="false"), which XCUITest marks
- * visible="false" even on screen — for those, a frame overlapping the window.
+ * Same rule as `isShown` in elements.ts.
+ *
+ * Sessions exclude `visible` from the page source (it is the costly part —
+ * see App.configureSession), so normally the frame decides: on screen = a
+ * non-empty frame overlapping the window. Scrolled-away content has an
+ * off-window frame. If `visible` is present after all: trust "true", and
+ * trust "false" only for accessibility elements (non-accessible nodes are
+ * always reported visible="false", even on screen).
  */
 function onScreenIos(tag: string, screen: Frame): boolean {
-  if (attribute(tag, 'visible') !== 'false') return true;
-  if (attribute(tag, 'accessible') !== 'false') return false;
+  const visible = attribute(tag, 'visible');
+  if (visible === 'true') return true;
+  if (visible === 'false' && attribute(tag, 'accessible') !== 'false') return false;
   const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((n) => num(tag, n));
   return w > 0 && h > 0 && x < screen.width && y < screen.height && x + w > 0 && y + h > 0;
 }

@@ -25,7 +25,8 @@ const describe = (selector: Selector, name?: string) => name ?? selector;
 
 let windowSize: { sessionId: string; width: number; height: number } | undefined;
 
-async function screenSize(): Promise<{ width: number; height: number }> {
+/** Window size, read once per session (each read costs seconds on a busy CI Mac). */
+export async function screenSize(): Promise<{ width: number; height: number }> {
   if (windowSize?.sessionId !== driver.sessionId) {
     const { width, height } = await driver.getWindowSize();
     windowSize = { sessionId: driver.sessionId, width, height };

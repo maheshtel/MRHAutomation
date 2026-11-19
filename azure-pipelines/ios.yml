@@ -49,9 +49,9 @@ parameters:
     type: string
     default: iPhone 16
   - name: iosVersion
-    displayName: iOS version, e.g. 18.5 (empty = newest on the agent)
+    displayName: iOS version — 18 = newest 18.x (much lighter than iOS 26 on hosted Intel Macs); empty = newest
     type: string
-    default: ' '
+    default: '18'
   - name: xcodeVersion
     displayName: Xcode version, e.g. 16.4 (empty = agent default)
     type: string
