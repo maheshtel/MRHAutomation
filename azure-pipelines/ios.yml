@@ -59,7 +59,7 @@ parameters:
   - name: vmImage
     displayName: Hosted macOS image (macOS-15-arm64 = Apple silicon, faster simulator)
     type: string
-    default: macOS-latest
+    default: macOS-15-arm64 # Apple silicon; macOS-latest was an Intel Mac that starved and dropped out
     values: [macOS-latest, macOS-15, macOS-15-arm64, macOS-14]
 
 variables:
@@ -201,7 +201,9 @@ jobs:
           IOS_APP_PATH: $(IOS_APP_PATH)
           IOS_HEADLESS: 'true'
           IOS_WDA_DERIVED_DATA_PATH: $(IOS_WDA_DERIVED_DATA_PATH)
-          IOS_SHOW_XCODE_LOG: 'true' # xcodebuild output in the Appium log if WDA won't start
+          # xcodebuild output in the Appium log: 82% of all log lines and real CPU on a
+          # starved agent. Turn on only to debug WebDriverAgent startup.
+          IOS_SHOW_XCODE_LOG: 'false'
           TEST_RETRIES: ${{ parameters.retries }}
           # A spec whose session could not start is re-run once at the end of the
           # run (new session, warmed-up device) instead of failing outright.

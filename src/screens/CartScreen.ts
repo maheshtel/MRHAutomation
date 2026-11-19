@@ -219,7 +219,7 @@ class CartScreenObject extends BaseScreen {
     await typeText(by.testId(this.ids.couponInput), code, { name: 'coupon code field' });
     await tapPastKeyboard(by.testId(this.ids.couponApply), {
       name: 'Apply coupon button',
-      returnKeyIsEquivalent: true, // coupon field's return key runs the same apply()
+      returnKey: 'next', // coupon field: returnKeyType="next" runs the same apply()
     });
   }
 

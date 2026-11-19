@@ -37,7 +37,7 @@ class LoginScreenObject extends BaseScreen {
   async submit(): Promise<void> {
     await tapPastKeyboard(by.testId(this.ids.submit), {
       name: 'Sign in button',
-      returnKeyIsEquivalent: true, // password field: returnKeyType="done" → handleLogin
+      returnKey: 'done', // password field: returnKeyType="done" runs handleLogin
     });
   }
 

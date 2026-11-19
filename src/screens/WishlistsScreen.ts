@@ -231,7 +231,7 @@ class WishlistsScreenObject extends BaseScreen {
     await typeText(by.testId(this.ids.formInput), name, { name: 'List name field' });
     await tapPastKeyboard(by.testId(this.ids.formSubmit), {
       name: 'Create list button',
-      returnKeyIsEquivalent: true, // name field's return key runs the same handleSubmit
+      returnKey: 'done', // name field: returnKeyType="done" runs the same handleSubmit
     });
     await waitForGone(by.testId(this.ids.formInput), { name: 'create list sheet' });
     log.info(`Created list "${name}"`);
