@@ -57,3 +57,11 @@ compgen -G "$out/Build/Products/*.xctestrun" >/dev/null \
   || fail "Build finished but no .xctestrun was produced in $out/Build/Products"
 log "Ready: $(ls "$out"/Build/Products/*.xctestrun)"
 echo "##vso[task.setvariable variable=IOS_WDA_DERIVED_DATA_PATH]$out"
+
+# The compiled runner app itself, for the faster "preinstalled" launch: Appium
+# installs and starts it directly instead of running xcodebuild per session.
+runner="$(find "$out/Build/Products" -maxdepth 2 -type d -name 'WebDriverAgentRunner-Runner.app' | sed -n 1p)"
+if [[ -n "$runner" ]]; then
+  log "Runner app: $runner"
+  echo "##vso[task.setvariable variable=IOS_WDA_RUNNER_APP]$runner"
+fi

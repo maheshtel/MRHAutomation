@@ -55,6 +55,11 @@ parameters:
     displayName: Xcode version, e.g. 16.4 (empty = agent default)
     type: string
     default: ' '
+  - name: wdaLaunch
+    displayName: WebDriverAgent launch (preinstalled = fast; xcodebuild = fallback)
+    type: string
+    default: preinstalled
+    values: [preinstalled, xcodebuild]
   - name: vmImage
     displayName: Hosted macOS image
     type: string
@@ -141,7 +146,14 @@ jobs:
         env:
           CORESIM_CACHE_DIR: $(CORESIM_CACHE_DIR)
 
-      # ── 2. WebDriverAgent: compiled once, cached, only LAUNCHED by Appium ─
+      # ── 2. Simulator: boots while WebDriverAgent restores + the app downloads
+      # (WDA normally comes from the cache, so nothing heavy competes; only a
+      # cache miss compiles alongside the boot, once).
+      - bash: ./scripts/ci/ios-simulator.sh start "${{ parameters.deviceName }}" "${{ trim(parameters.iosVersion) }}"
+        displayName: Start simulator (background boot)
+        timeoutInMinutes: 10
+
+      # ── 3. WebDriverAgent: compiled once, cached, only LAUNCHED by Appium ─
       - task: Cache@2
         displayName: Cache compiled WebDriverAgent
         inputs:
@@ -153,11 +165,6 @@ jobs:
       - bash: ./scripts/ci/build-wda.sh "$(WDA_BUILD_DIR)"
         displayName: Compile WebDriverAgent (build-for-testing)
         timeoutInMinutes: 20
-
-      # ── 3. Simulator: boots while the app downloads ───────────────────────
-      - bash: ./scripts/ci/ios-simulator.sh start "${{ parameters.deviceName }}" "${{ trim(parameters.iosVersion) }}"
-        displayName: Start simulator (background boot)
-        timeoutInMinutes: 10
 
       # ── 4. App under test ─────────────────────────────────────────────────
       - bash: ./scripts/ci/download-app.sh ios "${{ parameters.appZipUrl }}"
@@ -198,6 +205,16 @@ jobs:
             echo "##vso[task.logissue type=error]IOS_WDA_DERIVED_DATA_PATH is not set — the 'Compile WebDriverAgent' step must succeed first."
             exit 1
           fi
+          # WebDriverAgent launch: "preinstalled" installs the compiled runner app
+          # and starts it directly (seconds); "xcodebuild" runs
+          # test-without-building per session (~3.5 min on a hosted Intel Mac).
+          if [[ "${{ parameters.wdaLaunch }}" == preinstalled && -n "${IOS_WDA_RUNNER_APP:-}" && "$IOS_WDA_RUNNER_APP" != '$('* ]]; then
+            echo "[wda] preinstalled launch: $IOS_WDA_RUNNER_APP"
+            export IOS_PREBUILT_WDA_PATH="$IOS_WDA_RUNNER_APP"
+            unset IOS_WDA_DERIVED_DATA_PATH
+          else
+            echo "[wda] xcodebuild launch (test-without-building)"
+          fi
           suite_arg=""
           if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
           npx wdio run config/wdio.ios.conf.ts $suite_arg
@@ -218,6 +235,7 @@ jobs:
           IOS_APP_PATH: $(IOS_APP_PATH)
           IOS_HEADLESS: 'true'
           IOS_WDA_DERIVED_DATA_PATH: $(IOS_WDA_DERIVED_DATA_PATH)
+          IOS_WDA_RUNNER_APP: $(IOS_WDA_RUNNER_APP)
           # xcodebuild output in the Appium log: 82% of all log lines and real CPU on a
           # starved agent. Turn on only to debug WebDriverAgent startup.
           IOS_SHOW_XCODE_LOG: 'false'
