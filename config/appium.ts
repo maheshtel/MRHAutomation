@@ -30,6 +30,9 @@ export function appiumConnection(): Pick<
             port: appium.port,
             basePath: appium.path,
             logLevel: 'info',
+            // Timestamps on every line, so a CI log shows where session and
+            // command time goes (e.g. WebDriverAgent startup on a hosted Mac).
+            logTimestamp: true,
             // Needed for driver.startRecordingScreen() on Android.
             allowInsecure: 'uiautomator2:adb_shell',
           },

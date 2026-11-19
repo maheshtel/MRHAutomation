@@ -90,21 +90,25 @@ jobs:
     steps:
       - checkout: self
         fetchDepth: 1
+        fetchTags: false
         clean: true
 
+      # One step for all agent prep (each extra step costs task startup time):
+      # workspace, optional Xcode selection, and the Xcode version the cache
+      # keys below need.
       - bash: |
           set -euo pipefail
           rm -f .env # CI reads pipeline variables only, never a stray local .env
           chmod +x scripts/ci/*.sh
           mkdir -p logs reports
-        displayName: Prepare agent
-
-      - ${{ if ne(trim(parameters.xcodeVersion), '') }}:
-          - bash: |
-              set -euo pipefail
-              sudo xcode-select -s "/Applications/Xcode_${{ trim(parameters.xcodeVersion) }}.app/Contents/Developer"
-              xcodebuild -version
-            displayName: Select Xcode ${{ trim(parameters.xcodeVersion) }}
+          xcode="${{ trim(parameters.xcodeVersion) }}"
+          if [[ -n "$xcode" ]]; then
+            sudo xcode-select -s "/Applications/Xcode_${xcode}.app/Contents/Developer"
+          fi
+          v="$(xcodebuild -version | sed -n 1p | tr -cd '0-9.')"
+          echo "Xcode $v"
+          echo "##vso[task.setvariable variable=XCODE_VERSION]$v"
+        displayName: Prepare agent (+ Xcode version)
 
       - task: NodeTool@0
         displayName: Use Node.js $(NODE_VERSION)
@@ -115,12 +119,6 @@ jobs:
       # background during npm ci + native compiles starved the small hosted
       # Intel Mac (npm ci 18 min, add-on compile 20+ min). The simulator now
       # boots after them, overlapping only the network-bound app download.
-
-      - bash: |
-          v="$(xcodebuild -version | sed -n 1p | tr -cd '0-9.')"
-          echo "Xcode $v"
-          echo "##vso[task.setvariable variable=XCODE_VERSION]$v"
-        displayName: Detect Xcode version
 
       # ── 1. Dependencies ───────────────────────────────────────────────────
       # npm's compressed downloads (npm ci then installs offline) and the
@@ -273,8 +271,11 @@ jobs:
           xcrun simctl spawn "$IOS_UDID" log show --last 30m --style compact \
             --predicate 'process CONTAINS "MountainRose" OR process CONTAINS "WebDriverAgent"' \
             > logs/simulator.log 2>/dev/null || true
-        displayName: Collect simulator log
-        condition: always()
+        displayName: Collect simulator log (only when something failed)
+        # `log show` over 30 min is slow on a hosted Mac and only useful for a
+        # crash, so a fully green run skips it. Failing tests leave the job
+        # "SucceededWithIssues" (continueOnError), which still collects it.
+        condition: and(always(), ne(variables['Agent.JobStatus'], 'Succeeded'))
         continueOnError: true
 
       - task: PublishPipelineArtifact@1

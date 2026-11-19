@@ -84,6 +84,7 @@ jobs:
     steps:
       - checkout: self
         fetchDepth: 1
+        fetchTags: false
         clean: true
 
       # ── 1. Start the emulator first: it boots while the next steps run ─────
@@ -164,6 +165,11 @@ jobs:
           npx wdio run config/wdio.android.conf.ts $suite_arg
         displayName: Run Appium tests (${{ parameters.suite }})
         timeoutInMinutes: 60
+        # Failing tests mark the job "partially succeeded" (orange) instead of
+        # failed: Azure saves the pipeline caches (emulator system image, npm)
+        # only for jobs that succeed, and without them the next run downloads
+        # everything again. Failures still show on the step and in the Tests tab.
+        continueOnError: true
         env:
           TEST_USER_EMAIL: $(TEST_USER_EMAIL)
           TEST_USER_PASSWORD: $(TEST_USER_PASSWORD)
