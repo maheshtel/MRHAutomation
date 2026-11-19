@@ -39,14 +39,30 @@ while IFS= read -r dir; do
     log "coresim: using the prebuilt darwin-$prebuild_arch binary ($dir)"
     continue
   fi
-  log "coresim: no darwin-$prebuild_arch prebuild — compiling from source (warnings allowed)"
+  # A binary compiled by an earlier run (pipeline cache, keyed on arch +
+  # Xcode + package-lock) is reused as-is: node-gyp-build loads build/Release.
+  cache="${CORESIM_CACHE_DIR:-}"
+  if [[ -n "$cache" ]] && compgen -G "$cache/*.node" >/dev/null; then
+    mkdir -p "$dir/build/Release"
+    cp "$cache"/*.node "$dir/build/Release/"
+    log "coresim: using the binary compiled by an earlier run ($cache)"
+    continue
+  fi
+  log "coresim: no darwin-$prebuild_arch prebuild — compiling from source (warnings allowed, ~22 files)"
   sed -i '' 's/"GCC_TREAT_WARNINGS_AS_ERRORS": "YES"/"GCC_TREAT_WARNINGS_AS_ERRORS": "NO"/' "$dir/binding.gyp"
   build_log="logs/coresim-build.log"
   mkdir -p logs
-  if ! (cd "$dir" && npm run install --foreground-scripts) >"$build_log" 2>&1; then
-    grep -E "error:|Error:|gyp ERR" "$build_log" | sed -n 1,40p || tail -60 "$build_log"
-    fail "Building @appium/coresim failed on a $arch Mac — see the lines above. An Apple-silicon (arm64) agent would use the prebuilt binary instead."
+  start=$(date +%s)
+  # Output shown live (one line per file) so a slow agent visibly progresses.
+  if ! (cd "$dir" && npm run install --foreground-scripts) 2>&1 | tee "$build_log"; then
+    grep -E "error:|Error:|gyp ERR" "$build_log" | sed -n 1,40p || true
+    fail "Building @appium/coresim failed on a $arch Mac — see the lines above."
   fi
   compgen -G "$dir/build/Release/*.node" >/dev/null || fail "coresim compiled but produced no .node file"
-  log "coresim: compiled ($dir/build/Release)"
+  log "coresim: compiled in $(( $(date +%s) - start ))s ($dir/build/Release)"
+  if [[ -n "$cache" ]]; then
+    mkdir -p "$cache"
+    cp "$dir"/build/Release/*.node "$cache/"
+    log "coresim: saved to $cache for the next runs"
+  fi
 done < <(find node_modules -type d -path '*node_modules/@appium/coresim' -prune)
