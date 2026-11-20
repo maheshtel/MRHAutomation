@@ -253,6 +253,24 @@ jobs:
             echo "[app] already installed by the warm-up step"
             export IOS_APP_PATH=''
           fi
+          # Evidence for device-level failures: the simulator's system UI died
+          # mid-run once (2026-11-20) and nothing showed why. Record when the
+          # tests started (the log collection below reads from there) and
+          # sample the agent's CPU / memory every 30 s.
+          date '+%Y-%m-%d %H:%M:%S' > logs/.tests-started-at
+          (
+            set +e +o pipefail # a failed sample must not end the sampler
+            while true; do
+              {
+                echo "=== $(date -u +%H:%M:%S)  load: $(sysctl -n vm.loadavg)  swap: $(sysctl -n vm.swapusage)"
+                vm_stat | grep -E 'Pages (free|active|wired|occupied by compressor)|Swapins|Swapouts'
+                top -l 1 -n 6 -o cpu -stats pid,command,cpu,mem | tail -7
+              } >> logs/host-resources.log 2>&1
+              sleep 30
+            done
+          ) &
+          sampler=$!
+          trap 'kill "$sampler" 2>/dev/null || true' EXIT
           suite_arg=""
           if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
           npx wdio run config/wdio.ios.conf.ts $suite_arg
@@ -311,12 +329,24 @@ jobs:
         continueOnError: true
 
       - bash: |
-          # Simulator system log of the last 30 min — app crashes show up here.
+          # Simulator system log since the tests started: the app and
+          # WebDriverAgent in full, plus the simulator's system UI (backboardd
+          # in full; SpringBoard / testmanagerd errors). On 2026-11-20
+          # backboardd hung and died mid-run, and with only the first two
+          # processes collected the log could show that it died but not why.
           [[ -n "${IOS_UDID:-}" && "$IOS_UDID" != '$('* ]] || exit 0
-          xcrun simctl spawn "$IOS_UDID" log show --last 30m --style compact \
-            --predicate 'process CONTAINS "MountainRose" OR process CONTAINS "WebDriverAgent"' \
+          since="$(cat logs/.tests-started-at 2>/dev/null || true)"
+          range=(--last 30m); [[ -n "$since" ]] && range=(--start "$since")
+          xcrun simctl spawn "$IOS_UDID" log show "${range[@]}" --style compact \
+            --predicate 'process CONTAINS "MountainRose" OR process CONTAINS "WebDriverAgent" OR process == "backboardd" OR ((process == "SpringBoard" OR process == "testmanagerd") AND (messageType == error OR messageType == fault))' \
             > logs/simulator.log 2>/dev/null || true
-        displayName: Collect simulator log (only when something failed)
+          # Crash / hang reports written during the run (simulator processes'
+          # reports land in the host's DiagnosticReports).
+          mkdir -p logs/diagnostic-reports
+          find "$HOME/Library/Logs/DiagnosticReports" -type f -mmin -120 \
+            -exec cp {} logs/diagnostic-reports/ \; 2>/dev/null || true
+          ls -la logs/diagnostic-reports
+        displayName: Collect simulator log + crash reports (only when something failed)
         # `log show` over 30 min is slow on a hosted Mac and only useful for a
         # crash, so a fully green run skips it. Failing tests leave the job
         # "SucceededWithIssues" (continueOnError), which still collects it.

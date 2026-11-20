@@ -2,8 +2,11 @@
  * Settings shared by every platform. The platform configs add capabilities and
  * the Appium connection; nothing here is Android- or iOS-specific.
  */
+import { appendFileSync } from 'node:fs';
+import path from 'node:path';
 import { driver } from '@wdio/globals';
 import { App } from '../src/core/app';
+import { checkBackendHealth, resetAfterFailure } from '../src/core/session';
 import { echoWorkerErrors, uploadFailureNow, uploadLiveArtifacts } from '../src/core/liveDiagnostics';
 import { createLogger } from '../src/core/logger';
 import { attachVideo, captureFailureEvidence } from '../src/core/reporting';
@@ -144,28 +147,31 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
 
   /**
    * Runs before each spec file's top-level describe. In a shared session, a
-   * spec that follows a failure gets a restarted app (data kept), the same
-   * treatment a retry gets in beforeTest.
+   * spec that follows a failure gets the same reset a retry gets in
+   * beforeTest (see resetAfterFailure).
    */
   beforeSuite: async (suite) => {
     // Top-level describe only (a nested describe has a parent title).
     if (!lastAttemptFailed || suite.parent) return;
-    log.warn(`Previous spec failed; restarting the app before "${suite.title}"`);
-    await App.restart();
+    log.warn(`Previous spec failed; resetting before "${suite.title}"`);
     lastAttemptFailed = false;
+    await resetAfterFailure();
   },
 
   /**
    * Runs before every attempt of every test. A retry must not start from the
    * screen the failed attempt left behind (an open sheet, a half-typed field),
    * so the app is restarted first. Data is kept: a signed-in user stays signed
-   * in, and the scenario's own "Given" steps re-establish the rest.
+   * in, and the scenario's own "Given" steps re-establish the rest. If the
+   * failure killed the automation backend itself (WebDriverAgent /
+   * UiAutomator2), a restart is impossible: resetAfterFailure starts a fresh
+   * session on a healthy device instead (src/core/session.ts).
    */
   beforeTest: async (test) => {
     const attempt = attemptOf(test);
     if (attempt > 0) {
-      log.warn(`Retry ${attempt}/${env.run.retries} of "${test.title}" — restarting the app`);
-      await App.restart();
+      log.warn(`Retry ${attempt}/${env.run.retries} of "${test.title}" — resetting the app`);
+      await resetAfterFailure();
     }
     if (env.run.recordVideo) await driver.startRecordingScreen().catch(() => undefined);
   },
@@ -180,6 +186,17 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
       const reason = (error as Error | undefined)?.message?.split('\n')[0] ?? 'unknown error';
       log.error(`✖ ${title} after ${Math.round(duration / 1000)}s: ${reason}`);
       const evidence = await captureFailureEvidence(title, (error as Error | undefined)?.stack ?? reason);
+      // Was it the test, or did the device-side automation server die? A dead
+      // backend makes every lookup come back empty, so the error above then
+      // names a symptom ("X not displayed"), not the cause.
+      const health = await checkBackendHealth();
+      if (!health.ok) {
+        const diagnosis =
+          `Automation backend not responding after this failure (${health.reason}). ` +
+          'The device-side server (WebDriverAgent / UiAutomator2) died; the error above is a symptom.';
+        log.error(`✖ ${diagnosis}`);
+        appendFileSync(path.join(evidence, 'error.txt'), `\n${diagnosis}\n`, 'utf8');
+      }
       uploadFailureNow(evidence);
     }
     if (env.run.recordVideo) {

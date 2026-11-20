@@ -37,6 +37,7 @@ import { scroll, scrollUntilVisible } from '../core/gestures';
 import { tapPastKeyboard } from '../core/keyboard';
 import { by } from '../core/locators';
 import { type EdgeOffset, tapNested } from '../core/nested';
+import { isBackendGone } from '../core/session';
 import { BaseScreen } from './BaseScreen';
 
 const LINE_ITEM_PATTERN = 'cart-(item|gift-certificate)-[0-9a-fA-F-]+';
@@ -151,7 +152,9 @@ class CartScreenObject extends BaseScreen {
       const { x, y } = await row.getLocation();
       const { width, height } = await row.getSize();
       return `${await getTestId(row)}@${x},${y} ${width}x${height}`;
-    } catch {
+    } catch (error) {
+      // A dead automation backend is not movement: let it surface as itself.
+      if (isBackendGone(error)) throw error;
       // The list re-rendered between the find and the read; treat it as movement.
       return undefined;
     }
@@ -159,15 +162,31 @@ class CartScreenObject extends BaseScreen {
 
   /** Wait until the first row stops moving, i.e. the app's own scroll has finished. */
   private async waitForListAtRest(): Promise<string | undefined> {
-    let previous = await this.firstLineSignature();
+    let reads = 0;
+    let slowestRead = 0;
+    const read = async () => {
+      const started = Date.now();
+      const signature = await this.firstLineSignature();
+      reads += 1;
+      slowestRead = Math.max(slowestRead, Date.now() - started);
+      return signature;
+    };
+
+    let previous = await read();
     const deadline = Date.now() + LIST_REST_TIMEOUT_MS;
     while (Date.now() < deadline) {
       await driver.pause(LIST_REST_INTERVAL_MS);
-      const current = await this.firstLineSignature();
+      const current = await read();
       if (current !== undefined && current === previous) return current;
       previous = current;
     }
-    throw new Error(`The cart list kept moving for ${LIST_REST_TIMEOUT_MS / 1000}s`);
+    // Distinguish a list that really kept moving from a device that stopped
+    // answering (one read outlasting the whole window).
+    throw new Error(
+      slowestRead >= LIST_REST_TIMEOUT_MS
+        ? `The device stopped responding: one read of the cart list took ${Math.round(slowestRead / 1000)}s`
+        : `The cart list kept moving for ${LIST_REST_TIMEOUT_MS / 1000}s (${reads} reads)`,
+    );
   }
 
   /**
