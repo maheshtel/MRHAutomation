@@ -104,8 +104,9 @@ export async function scrollUntilVisible(
     }
     if (swipes >= maxSwipes) break;
     // A match that exists but is not shown is not necessarily further down.
-    // Swiping blindly once pushed Account › My Lists off the top: the row was
-    // already inside the window while the screen was still sliding in.
+    // On iOS CI, Account › My Lists sat UNDER the screen header (y 39–100,
+    // the list's viewport starts at y 124): inside the window but clipped,
+    // so "not visible". Swiping down pushed it further away every time.
     const placement = await placementOf(selector);
     if (placement === 'inside') {
       settleUntil ??= Date.now() + INSIDE_SETTLE_MS;
@@ -116,7 +117,7 @@ export async function scrollUntilVisible(
     }
     const towards = placement === (direction === 'down' ? 'above' : 'below') ? opposite : direction;
     if (towards !== direction) {
-      log.info(`${name ?? selector} is ${placement} the window, scrolling ${towards}`);
+      log.info(`${name ?? selector} is ${placement} the visible area, scrolling ${towards}`);
     }
     await scroll(towards);
     swipes += 1;
@@ -124,13 +125,16 @@ export async function scrollUntilVisible(
   throw new Error(`"${name ?? selector}" was not found after ${maxSwipes} swipe(s) ${direction}`);
 }
 
-/** How long a match lying inside the window may take to be reported visible. */
+/** How long a match lying in the visible area may take to be reported visible. */
 const INSIDE_SETTLE_MS = 3000;
 
 /**
- * Where the first match of a selector lies relative to the window, from its
- * frame, or undefined when nothing matches. Uses the protocol command so a
- * vanished element is just "undefined" (see `isShown`).
+ * Where the first match of a selector lies relative to the screen's VISIBLE
+ * AREA — the band between the top chrome (status bar + screen header,
+ * `SAFE_TOP`) and the bottom overlays (`SAFE_BOTTOM`) — judged by its centre,
+ * or undefined when nothing matches. A row under the header is "above" even
+ * though its frame is inside the window: the scroll view clips it there.
+ * Protocol command, so a vanished element is just "undefined" (see `isShown`).
  */
 async function placementOf(selector: Selector): Promise<'above' | 'inside' | 'below' | undefined> {
   const [element] = await $$(selector).getElements();
@@ -139,8 +143,9 @@ async function placementOf(selector: Selector): Promise<'above' | 'inside' | 'be
     const { y, height: h } = await driver.getElementRect(element.elementId);
     const { height } = await windowSize();
     if (h <= 0) return undefined;
-    if (y + h <= 0) return 'above';
-    if (y >= height) return 'below';
+    const centre = y + h / 2;
+    if (centre < height * SAFE_TOP) return 'above';
+    if (centre > height * SAFE_BOTTOM) return 'below';
     return 'inside';
   } catch {
     return undefined;
