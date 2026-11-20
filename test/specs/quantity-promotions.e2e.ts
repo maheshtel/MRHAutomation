@@ -22,7 +22,7 @@ import { catalog } from '../data/catalog';
 
 describe('Feature: Quantity and promotions @regression', () => {
   after(async () => {
-    await CartFlow.emptyCart().catch(() => undefined);
+    await CartFlow.emptyCartQuietly();
   });
 
   it("Scenario: Change an item's quantity and try an invalid coupon", async () => {

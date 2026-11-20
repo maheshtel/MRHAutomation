@@ -25,7 +25,7 @@ import { sameProduct } from '../data/matchers';
 
 describe('Feature: Cart management @smoke', () => {
   after(async () => {
-    await CartFlow.emptyCart().catch(() => undefined);
+    await CartFlow.emptyCartQuietly();
   });
 
   it('Scenario: Add a searched product to the cart and remove it', async () => {

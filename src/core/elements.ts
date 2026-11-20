@@ -61,14 +61,27 @@ export async function screenSize(): Promise<{ width: number; height: number }> {
  * match non-accessible nodes, later checks go straight to the frame. That
  * skips `displayed` (always false for them, and the costliest query: up to
  * 10 s on Home on a CI Mac) and the `accessible` read: 3 calls become 1.
+ *
+ * Every read goes through the plain protocol command for the element's id,
+ * never the element's own method (`element.isDisplayed()`): when an element
+ * method hits a stale element, WebdriverIO 10 re-finds it by its selector and
+ * WAITS up to `waitforTimeout` (30 s) for it to come back. For an element that
+ * just closed (a sheet's button) it never comes back, so a single check blocked
+ * for 30 s — longer than the wait it was part of ("quick add sheet to
+ * disappear" failed on iOS CI with the sheet already gone) — and kept polling
+ * in the background into the next test. Here a stale element is simply
+ * "not shown": every poll re-queries anyway.
  */
 export async function isShown(element: WebdriverIO.Element, selector?: Selector): Promise<boolean> {
-  if (isAndroid()) return element.isDisplayed().catch(() => false);
+  const id = element.elementId;
+  if (!id) return false;
+  const displayed = () => driver.isElementDisplayed(id).catch(() => false);
+  if (isAndroid()) return displayed();
   const knownNonAccessible = selector !== undefined && nonAccessibleSelectors.has(selector);
-  if (!knownNonAccessible && (await element.isDisplayed().catch(() => false))) return true;
+  if (!knownNonAccessible && (await displayed())) return true;
   try {
     if (!knownNonAccessible) {
-      if ((await element.getAttribute('accessible')) !== 'false') return false;
+      if ((await driver.getElementAttribute(id, 'accessible')) !== 'false') return false;
       if (selector !== undefined) nonAccessibleSelectors.add(selector);
     }
     const rect = await driver.getElementRect(element.elementId);
@@ -102,7 +115,10 @@ export async function waitForDisplayed(selector: Selector, opts: WaitOptions = {
             'use waitForFirstVisible for one-of-many locators',
         );
       }
-      found = elements[0] && (await isShown(elements[0], selector)) ? elements[0] : undefined;
+      // Destructure, never index: reading `elements[0]` of an EMPTY WebdriverIO
+      // 10 element list silently waits up to `waitforTimeout` for a match.
+      const [first] = elements;
+      found = first && (await isShown(first, selector)) ? first : undefined;
       return found !== undefined;
     },
     {

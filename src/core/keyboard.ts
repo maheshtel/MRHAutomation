@@ -14,9 +14,10 @@
  * has already gone, or double-submits.
  *
  * Instead the button is tapped with the keyboard still open. Every scroll
- * container in the app sets `keyboardShouldPersistTaps="handled"`, so that one
- * tap both dismisses the keyboard and presses the button — exactly what a
- * user does.
+ * container in the app sets `keyboardShouldPersistTaps="handled"`, so the tap
+ * reaches the button. "handled" also means the keyboard STAYS open after it
+ * unless the screen's handler dismisses it (sign-in and the wishlist sheet do;
+ * the cart's coupon Apply does not) — see `dismissKeyboardByTapping`.
  */
 import { $$, driver } from '@wdio/globals';
 import { env } from '../../config/env';
@@ -52,7 +53,7 @@ export async function hideAndroidKeyboard(): Promise<void> {
 }
 
 /** Top edge of the iOS keyboard, or undefined when it is not on screen. */
-async function iosKeyboardTop(): Promise<number | undefined> {
+export async function iosKeyboardTop(): Promise<number | undefined> {
   const keyboards = await $$('-ios class chain:**/XCUIElementTypeKeyboard').getElements();
   for (const keyboard of keyboards) {
     const { y, height } = await driver.getElementRect(keyboard.elementId);
@@ -82,6 +83,41 @@ async function pressIosKey(label: string): Promise<void> {
   }
   const capitalised = key.charAt(0).toUpperCase() + key.slice(1);
   await driver.execute('mobile: hideKeyboard', { keys: [key, capitalised] });
+}
+
+/**
+ * Close the keyboard without pressing a key, the way a user does.
+ *
+ * Android: BACK. iOS: tap `plainContent` — a non-interactive view (plain text)
+ * inside the screen's scroll container. With `keyboardShouldPersistTaps=
+ * "handled"` a tap that no control handles goes to the scroll view, which
+ * blurs the focused field. The target must sit above the keyboard; a tap on a
+ * covered target would land on a key. Throws if the keyboard stays open.
+ */
+export async function dismissKeyboardByTapping(plainContent: Selector, name: string): Promise<void> {
+  if (isAndroid()) {
+    await hideAndroidKeyboard();
+    return;
+  }
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const keyboardTop = await iosKeyboardTop();
+    if (keyboardTop === undefined) return;
+    const target = await waitForDisplayed(plainContent, { name });
+    const bottom = await bottomOf(target);
+    if (bottom === undefined || bottom > keyboardTop - CLEARANCE) {
+      throw new Error(
+        `Cannot close the keyboard: "${name}" is under it (bottom ${bottom}, keyboard top ${keyboardTop})`,
+      );
+    }
+    log.info(`Closing the keyboard by tapping ${name}`);
+    await target.click();
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      if ((await iosKeyboardTop()) === undefined) return;
+      await driver.pause(300);
+    }
+  }
+  throw new Error(`The keyboard stayed open after tapping ${name}`);
 }
 
 /**

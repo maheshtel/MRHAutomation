@@ -2,7 +2,10 @@ import type { SearchProduct } from '../screens/SearchOverlay';
 import { CartScreen } from '../screens/CartScreen';
 import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { TabBar } from '../screens/TabBar';
+import { createLogger } from '../core/logger';
 import { ProductFlow } from './product.flow';
+
+const log = createLogger('cart');
 
 export const CartFlow = {
   /** Open the Cart tab and remove anything already in it. */
@@ -10,6 +13,18 @@ export const CartFlow = {
     await TabBar.open('Cart');
     if ((await CartScreen.waitForSettled()) === 'items') await CartScreen.removeAll();
     await TabBar.waitForCartCount(0);
+  },
+
+  /**
+   * Teardown: empty the cart without masking the test result. A failure is
+   * logged, not swallowed: a cart left full changes what later specs start from.
+   */
+  async emptyCartQuietly(): Promise<void> {
+    try {
+      await CartFlow.emptyCart();
+    } catch (error) {
+      log.warn('Emptying the cart during teardown failed; later specs start with items in it', error);
+    }
   },
 
   /** Search for a product, add one unit, and wait for the cart badge to count it. */

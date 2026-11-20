@@ -8,7 +8,9 @@
 import { $, driver } from '@wdio/globals';
 import { env } from '../../config/env';
 import { appearsWithin, getLabel, tap, waitForDisplayed } from '../core/elements';
+import { iosKeyboardTop } from '../core/keyboard';
 import { by } from '../core/locators';
+import { isAndroid } from '../core/platform';
 
 export type TabName = 'Home' | 'Shop' | 'Cart' | 'Account';
 
@@ -33,6 +35,20 @@ const ROOT_TEST_ID: Record<TabName, string> = {
   Account: 'account-screen',
 };
 
+/**
+ * On iOS an open keyboard covers the floating tab bar, which then reads as
+ * "not displayed". Name that cause instead of the symptom. Only runs after a
+ * failure, so a passing tap pays nothing for it.
+ */
+async function explainHiddenTabBar(error: unknown): Promise<unknown> {
+  if (isAndroid() || (await iosKeyboardTop().catch(() => undefined)) === undefined) return error;
+  return new Error(
+    `${(error as Error).message} — the on-screen keyboard is open and covers the tab bar ` +
+      '(an earlier step left a text field focused)',
+    { cause: error },
+  );
+}
+
 export const TabBar = {
   /**
    * Open a tab at its root screen. If the tab resumes on a deeper screen,
@@ -41,7 +57,11 @@ export const TabBar = {
    */
   async open(tab: TabName): Promise<void> {
     const root = by.testId(ROOT_TEST_ID[tab]);
-    await tap(tabSelector(tab), { name: `${tab} tab` });
+    try {
+      await tap(tabSelector(tab), { name: `${tab} tab` });
+    } catch (error) {
+      throw await explainHiddenTabBar(error);
+    }
     if (await appearsWithin(root, 3000)) return;
     await tap(tabSelector(tab), { name: `${tab} tab (reset to root)` });
     await waitForDisplayed(root, { name: `${tab} tab root screen` });

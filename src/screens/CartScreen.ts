@@ -13,6 +13,7 @@
  *     cart-coupon-input-input       code field
  *     cart-coupon-input-apply       Apply button
  *     cart-coupon-input-error       inline error
+ *     cart-coupon-note              gift-certificate note (plain text)
  *     cart-coupon-code-<CODE>       applied coupon row
  *
  * Line-item entity ids are BigCommerce UUIDs (hex + dashes). Every child testID
@@ -34,7 +35,7 @@ import {
   waitForDisplayed,
 } from '../core/elements';
 import { scroll, scrollUntilVisible } from '../core/gestures';
-import { tapPastKeyboard } from '../core/keyboard';
+import { dismissKeyboardByTapping, tapPastKeyboard } from '../core/keyboard';
 import { by } from '../core/locators';
 import { type EdgeOffset, tapNested } from '../core/nested';
 import { isBackendGone } from '../core/session';
@@ -93,6 +94,7 @@ class CartScreenObject extends BaseScreen {
     couponInput: 'cart-coupon-input-input',
     couponApply: 'cart-coupon-input-apply',
     couponError: 'cart-coupon-input-error',
+    couponNote: 'cart-coupon-note',
   };
 
   protected root() {
@@ -325,6 +327,10 @@ class CartScreenObject extends BaseScreen {
       name: 'Apply coupon button',
       returnKey: 'next', // coupon field: returnKeyType="next" runs the same apply()
     });
+    // The field keeps focus after Apply, so on iOS the keyboard stays up and
+    // covers the floating tab bar: every later tab tap (this spec's cart
+    // cleanup, the next spec's first step) then fails. Close it as a user does.
+    await dismissKeyboardByTapping(by.testId(this.ids.couponNote), 'coupon gift-certificate note');
   }
 
   /** Waits for the inline coupon error and returns its text. */
