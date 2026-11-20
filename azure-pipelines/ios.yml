@@ -267,6 +267,12 @@ jobs:
                 # 2 samples 1 s apart: top's FIRST sample has no baseline and
                 # reports 0.0% CPU for every process. Keep the second.
                 top -l 2 -s 1 -n 8 -o cpu -stats pid,command,cpu,mem | tail -9
+                # diagnosticd (live log streaming) stayed at ~80–90% CPU even
+                # with Appium's log capture off. Parent PIDs say whether it is
+                # the Mac's or the simulator's (launchd_sim), and any `log`
+                # clients show who is streaming.
+                echo '--- log daemons / clients (pid ppid %cpu command)'
+                ps -axo pid=,ppid=,pcpu=,command= | grep -E '[d]iagnosticd|[l]aunchd_sim|[ /]log (stream|show)|[a]psd' | cut -c1-180
               } >> logs/host-resources.log 2>&1
               sleep 30
             done
