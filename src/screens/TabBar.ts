@@ -5,11 +5,11 @@
  * "Account tab", and "Cart tab" / "Cart tab, N item(s)". The cart label is the
  * only place the cart count is exposed, so it doubles as the badge assertion.
  */
-import { $, driver } from '@wdio/globals';
+import { $, $$, driver } from '@wdio/globals';
 import { env } from '../../config/env';
 import { appearsWithin, getLabel, tap, waitForDisplayed } from '../core/elements';
 import { iosKeyboardTop } from '../core/keyboard';
-import { by } from '../core/locators';
+import { by, type Selector } from '../core/locators';
 import { isAndroid } from '../core/platform';
 
 export type TabName = 'Home' | 'Shop' | 'Cart' | 'Account';
@@ -49,6 +49,31 @@ async function explainHiddenTabBar(error: unknown): Promise<unknown> {
   );
 }
 
+/**
+ * The reset tap POPS the tab's stack: the root slides back in from the left.
+ * Its full-screen container counts as displayed as soon as it is on screen,
+ * while the rows inside are not visible yet. Searching for a row mid-slide
+ * once made a scroll helper swipe Account › My Lists off the top. "Open" is
+ * finished when the root's frame is at rest: x ≥ 0 and unchanged between two
+ * reads. Re-queried each read (protocol command), so a re-render is harmless.
+ */
+async function waitUntilSettled(selector: Selector, name: string): Promise<void> {
+  let last = '';
+  await driver.waitUntil(
+    async () => {
+      const [element] = await $$(selector).getElements();
+      const rect = element?.elementId
+        ? await driver.getElementRect(element.elementId).catch(() => undefined)
+        : undefined;
+      const now = rect ? `${Math.round(rect.x)},${Math.round(rect.y)},${Math.round(rect.width)}` : '';
+      const settled = rect !== undefined && rect.x >= 0 && now === last;
+      last = now;
+      return settled;
+    },
+    { timeout: 10_000, interval: 250, timeoutMsg: `${name} kept moving for 10s (last frame ${last})` },
+  );
+}
+
 export const TabBar = {
   /**
    * Open a tab at its root screen. If the tab resumes on a deeper screen,
@@ -65,6 +90,7 @@ export const TabBar = {
     if (await appearsWithin(root, 3000)) return;
     await tap(tabSelector(tab), { name: `${tab} tab (reset to root)` });
     await waitForDisplayed(root, { name: `${tab} tab root screen` });
+    await waitUntilSettled(root, `${tab} tab root screen`);
   },
 
   async cartCount(): Promise<number> {

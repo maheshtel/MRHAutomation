@@ -12,6 +12,7 @@
  */
 import { $$, driver } from '@wdio/globals';
 import { env } from '../../config/env';
+import { createLogger } from './logger';
 import type { Selector } from './locators';
 import { isAndroid } from './platform';
 
@@ -20,6 +21,8 @@ export interface WaitOptions {
   /** Human description used in timeout messages, e.g. "Sign in button". */
   name?: string;
 }
+
+const log = createLogger('elements');
 
 const describe = (selector: Selector, name?: string) => name ?? selector;
 
@@ -222,11 +225,48 @@ export interface TypeOptions extends WaitOptions {
   mask?: boolean;
 }
 
+/**
+ * Type into a field and make sure the field really holds the text.
+ *
+ * The app's inputs are controlled React Native fields: every keystroke goes to
+ * JS state and back. When the JS thread lags (an overloaded CI Mac), the value
+ * coming back can overwrite keystrokes the driver already typed. On iOS CI the
+ * search field kept only "l" of "lavender", the driver reported success, and
+ * the test then waited 20 s for results that could never match. So the field is
+ * read back; dropped keystrokes are logged as a warning and the text is typed
+ * once more. Masked (password) fields read back as bullets and are not checked.
+ */
 export async function typeText(selector: Selector, text: string, opts: TypeOptions = {}) {
+  const name = describe(selector, opts.name);
   const element = await waitForDisplayed(selector, opts);
   await element.click();
-  await element.clearValue();
-  await element.setValue(text, opts.mask ? { mask: true } : undefined);
+  let shown = '';
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await element.clearValue();
+    await element.setValue(text, opts.mask ? { mask: true } : undefined);
+    if (opts.mask) return;
+    shown = await settledFieldText(element, text);
+    if (sameText(shown, text)) return;
+    if (attempt === 1) {
+      log.warn(`"${name}" holds "${shown}" after typing "${text}" (keystrokes dropped); typing it again`);
+    }
+  }
+  throw new Error(`Typed "${text}" into "${name}" but the field holds "${shown}"`);
+}
+
+const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The field's text once it matches `expected`, or what it holds after 3 s. */
+async function settledFieldText(element: WebdriverIO.Element, expected: string): Promise<string> {
+  const attribute = isAndroid() ? 'text' : 'value';
+  const deadline = Date.now() + 3000;
+  let value = '';
+  do {
+    value = (await driver.getElementAttribute(element.elementId, attribute).catch(() => null)) ?? '';
+    if (sameText(value, expected)) return value;
+    await driver.pause(300);
+  } while (Date.now() < deadline);
+  return value;
 }
 
 /** Number of currently visible elements matching the selector. */

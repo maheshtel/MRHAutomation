@@ -4,7 +4,7 @@
  * scroll container, because the app nests horizontal carousels inside its
  * vertical screens and "the first ScrollView" is frequently the wrong one.
  */
-import { driver } from '@wdio/globals';
+import { $$, driver } from '@wdio/globals';
 import { firstVisible, screenSize } from './elements';
 import { createLogger } from './logger';
 import type { Selector } from './locators';
@@ -94,15 +94,57 @@ export async function scrollUntilVisible(
   selector: Selector,
   { direction = 'down', maxSwipes = 10, name, safeBottom = SAFE_BOTTOM }: ScrollOptions = {},
 ): Promise<WebdriverIO.Element> {
-  for (let attempt = 0; attempt <= maxSwipes; attempt += 1) {
+  const opposite: Direction = direction === 'down' ? 'up' : 'down';
+  let settleUntil: number | undefined;
+  for (let swipes = 0; ; ) {
     const element = await firstVisible(selector);
     if (element) {
       await bringAboveTabBar(element, safeBottom);
       return element;
     }
-    if (attempt < maxSwipes) await scroll(direction);
+    if (swipes >= maxSwipes) break;
+    // A match that exists but is not shown is not necessarily further down.
+    // Swiping blindly once pushed Account › My Lists off the top: the row was
+    // already inside the window while the screen was still sliding in.
+    const placement = await placementOf(selector);
+    if (placement === 'inside') {
+      settleUntil ??= Date.now() + INSIDE_SETTLE_MS;
+      if (Date.now() < settleUntil) {
+        await driver.pause(400);
+        continue; // still settling (transition / covered): wait, don't swipe
+      }
+    }
+    const towards = placement === (direction === 'down' ? 'above' : 'below') ? opposite : direction;
+    if (towards !== direction) {
+      log.info(`${name ?? selector} is ${placement} the window, scrolling ${towards}`);
+    }
+    await scroll(towards);
+    swipes += 1;
   }
   throw new Error(`"${name ?? selector}" was not found after ${maxSwipes} swipe(s) ${direction}`);
+}
+
+/** How long a match lying inside the window may take to be reported visible. */
+const INSIDE_SETTLE_MS = 3000;
+
+/**
+ * Where the first match of a selector lies relative to the window, from its
+ * frame, or undefined when nothing matches. Uses the protocol command so a
+ * vanished element is just "undefined" (see `isShown`).
+ */
+async function placementOf(selector: Selector): Promise<'above' | 'inside' | 'below' | undefined> {
+  const [element] = await $$(selector).getElements();
+  if (!element?.elementId) return undefined;
+  try {
+    const { y, height: h } = await driver.getElementRect(element.elementId);
+    const { height } = await windowSize();
+    if (h <= 0) return undefined;
+    if (y + h <= 0) return 'above';
+    if (y >= height) return 'below';
+    return 'inside';
+  } catch {
+    return undefined;
+  }
 }
 
 /** If the element's centre sits under the bottom overlays, nudge the page up a little. */

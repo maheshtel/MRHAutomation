@@ -99,6 +99,13 @@ export function iosCapabilities(): Caps {
     // Omitted (not false) when CI has already switched it on: false would
     // switch Reduce Motion off again.
     'appium:reduceMotion': ios.setReduceMotion ? true : undefined,
+    // Without this the driver runs `log stream` (every level, no filter) in the
+    // device for the whole session, for getLogs('syslog') — which this suite
+    // never calls. On the hosted CI Mac that live stream kept diagnosticd at
+    // ~80% of a core plus ~18% for `log` itself (host-resources.log,
+    // 2026-11-20). The simulator log is still collected after the run
+    // (`log show` in ios.yml), as are crash reports.
+    'appium:skipLogCapture': true,
 
     // Simulator speed-ups (CI): no simulator window, and WebDriverAgent that is
     // already compiled — Appium then only launches it. Compiling WDA inside the
