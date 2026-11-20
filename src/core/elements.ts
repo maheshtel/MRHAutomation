@@ -25,6 +25,13 @@ const describe = (selector: Selector, name?: string) => name ?? selector;
 
 let windowSize: { sessionId: string; width: number; height: number } | undefined;
 
+/**
+ * iOS: selectors whose matches are not accessibility elements (see `isShown`).
+ * Whether a React Native view is an accessibility element is fixed by its
+ * component, so this holds for the whole run.
+ */
+const nonAccessibleSelectors = new Set<Selector>();
+
 /** Window size, read once per session (each read costs seconds on a busy CI Mac). */
 export async function screenSize(): Promise<{ width: number; height: number }> {
   if (windowSize?.sessionId !== driver.sessionId) {
@@ -49,12 +56,21 @@ export async function screenSize(): Promise<{ width: number; height: number }> {
  * "on screen" means: a non-empty frame that overlaps the window. React
  * Navigation removes screens that are not showing from the iOS hierarchy, and
  * scrolled-away content has an off-window frame, so this stays meaningful.
+ *
+ * Pass the selector the element was found with: once a selector is known to
+ * match non-accessible nodes, later checks go straight to the frame. That
+ * skips `displayed` (always false for them, and the costliest query: up to
+ * 10 s on Home on a CI Mac) and the `accessible` read: 3 calls become 1.
  */
-export async function isShown(element: WebdriverIO.Element): Promise<boolean> {
-  if (await element.isDisplayed().catch(() => false)) return true;
-  if (isAndroid()) return false;
+export async function isShown(element: WebdriverIO.Element, selector?: Selector): Promise<boolean> {
+  if (isAndroid()) return element.isDisplayed().catch(() => false);
+  const knownNonAccessible = selector !== undefined && nonAccessibleSelectors.has(selector);
+  if (!knownNonAccessible && (await element.isDisplayed().catch(() => false))) return true;
   try {
-    if ((await element.getAttribute('accessible')) !== 'false') return false;
+    if (!knownNonAccessible) {
+      if ((await element.getAttribute('accessible')) !== 'false') return false;
+      if (selector !== undefined) nonAccessibleSelectors.add(selector);
+    }
     const rect = await driver.getElementRect(element.elementId);
     const screen = await screenSize();
     return (
@@ -86,7 +102,7 @@ export async function waitForDisplayed(selector: Selector, opts: WaitOptions = {
             'use waitForFirstVisible for one-of-many locators',
         );
       }
-      found = elements[0] && (await isShown(elements[0])) ? elements[0] : undefined;
+      found = elements[0] && (await isShown(elements[0], selector)) ? elements[0] : undefined;
       return found !== undefined;
     },
     {
@@ -118,7 +134,7 @@ export async function waitForGone(selector: Selector, opts: WaitOptions = {}): P
 export async function firstVisible(selector: Selector): Promise<WebdriverIO.Element | undefined> {
   const elements = await $$(selector).getElements();
   for (const element of elements) {
-    if (await isShown(element)) return element;
+    if (await isShown(element, selector)) return element;
   }
   return undefined;
 }
@@ -203,7 +219,7 @@ export async function countVisible(selector: Selector): Promise<number> {
   // Sequential on purpose: Appium serialises commands per session anyway.
   let visible = 0;
   for (const element of elements) {
-    if (await isShown(element)) visible += 1;
+    if (await isShown(element, selector)) visible += 1;
   }
   return visible;
 }

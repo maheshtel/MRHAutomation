@@ -14,14 +14,19 @@ const log = createLogger('runner');
 /**
  * Run order for a full run. Each spec is self-contained (it sets up its own
  * preconditions), so any of them can also run alone; the order only makes a
- * full run read like a customer journey and lets Cleanup reuse the state the
- * Wishlist scenario leaves behind instead of rebuilding it.
+ * full run read like a customer journey and lets later specs reuse the state
+ * earlier ones leave behind instead of rebuilding it:
+ *   guest specs first (navigation, cart, quantity-promotions; they must stay
+ *   before Login, as they don't sign out themselves), then Login signs
+ *   in and stays signed in, so Wishlist and Cleanup skip their sign-in and
+ *   Logout signs out last. One sign-in per run instead of three; on a CI Mac
+ *   each sign-in + sign-out costs ~2 min.
  */
 const SPEC_ORDER = [
-  'login',
   'navigation',
   'cart',
   'quantity-promotions',
+  'login',
   'wishlist',
   'cleanup',
   'logout',
@@ -58,7 +63,7 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
   specs: specGroup(SPEC_ORDER),
   suites: {
     ...Object.fromEntries(SPEC_ORDER.map((name) => [name, [specPath(name)]])),
-    smoke: specGroup(['login', 'navigation', 'cart', 'logout']),
+    smoke: specGroup(['navigation', 'cart', 'login', 'logout']),
   },
 
   // One device = one session at a time. Raise with MAX_INSTANCES only when

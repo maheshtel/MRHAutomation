@@ -94,9 +94,10 @@ export const App = {
           log.warn('Dismissing an Android "isn\'t responding" dialog (Wait)');
           await wait.click();
         }
-      } else {
+      } else if (env.ios.deviceType === 'real') {
         // autoAcceptAlerts covers this; this is the fallback for real devices
-        // where a provisional prompt can slip through.
+        // where a provisional prompt can slip through. Not on simulators: there
+        // each attempt costs 1–2 s on a CI Mac and never finds an alert.
         await driver.execute('mobile: alert', { action: 'accept' }).catch(() => undefined);
       }
     } catch {

@@ -51,19 +51,26 @@ parameters:
     displayName: iOS version — 18 = newest 18.x (much lighter than iOS 26 on hosted Intel Macs); empty = newest
     type: string
     default: '18'
+  # The XCUITest driver in package-lock (12.22) fully supports only Xcode 26+;
+  # macOS-15's default is 16.4, so 26.3 (also on that image) is selected. It
+  # still runs the image's iOS 18 simulator runtimes. Not on the image → the
+  # image default is used, with a warning.
   - name: xcodeVersion
-    displayName: Xcode version, e.g. 16.4 (empty = agent default)
+    displayName: Xcode version, e.g. 26.3 (empty = agent default)
     type: string
-    default: ' '
+    default: '26.3'
   - name: wdaLaunch
     displayName: WebDriverAgent launch (preinstalled = fast; xcodebuild = fallback)
     type: string
     default: preinstalled
     values: [preinstalled, xcodebuild]
+  # macOS-latest ships only the iOS 26 simulator runtime, so the iOS 18
+  # requested above silently fell back to 26.5. macOS-15 has the iOS 18.5 and
+  # 18.6 runtimes (runner-images macOS-15 readme, image 20260824).
   - name: vmImage
-    displayName: Hosted macOS image
+    displayName: Hosted macOS image (macOS-15 has the iOS 18 simulator; macOS-latest only iOS 26)
     type: string
-    default: macOS-latest
+    default: macOS-15
     values: [macOS-latest, macOS-15, macOS-14]
 
 variables:
@@ -103,7 +110,11 @@ jobs:
           mkdir -p logs reports
           xcode="${{ trim(parameters.xcodeVersion) }}"
           if [[ -n "$xcode" ]]; then
-            sudo xcode-select -s "/Applications/Xcode_${xcode}.app/Contents/Developer"
+            if [[ -d "/Applications/Xcode_${xcode}.app" ]]; then
+              sudo xcode-select -s "/Applications/Xcode_${xcode}.app/Contents/Developer"
+            else
+              echo "##vso[task.logissue type=warning]Xcode ${xcode} is not on this image ($(ls -d /Applications/Xcode_*.app | xargs -n1 basename | tr '\n' ' ')) — using the default."
+            fi
           fi
           v="$(xcodebuild -version | sed -n 1p | tr -cd '0-9.')"
           echo "Xcode $v"
@@ -178,15 +189,31 @@ jobs:
       # A freshly booted simulator keeps doing first-boot work for minutes, and
       # an app's very first launch is its slowest. Pay both here, once, instead
       # of inside the first Appium session (where it caused session timeouts).
+      #
+      # The app and WebDriverAgent are installed here, so the Appium session
+      # installs neither (it reinstalled both: ~60 s per session). WDA installs
+      # while the app's first launch settles. Each install that succeeds sets
+      # a flag; without the flag the test step falls back to Appium installing.
       - bash: |
           set -uo pipefail
           start=$(date +%s)
-          xcrun simctl install "$IOS_UDID" "$IOS_APP_PATH"
+          if xcrun simctl install "$IOS_UDID" "$IOS_APP_PATH"; then
+            echo "##vso[task.setvariable variable=IOS_APP_PREINSTALLED]true"
+          fi
           bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$IOS_APP_PATH/Info.plist")"
-          xcrun simctl launch "$IOS_UDID" "$bundle_id" >/dev/null && sleep 20
+          launched=$(date +%s)
+          xcrun simctl launch "$IOS_UDID" "$bundle_id" >/dev/null
+          if [[ "${{ parameters.wdaLaunch }}" == preinstalled && -n "${IOS_WDA_RUNNER_APP:-}" ]]; then
+            if xcrun simctl install "$IOS_UDID" "$IOS_WDA_RUNNER_APP"; then
+              echo "##vso[task.setvariable variable=IOS_WDA_PREINSTALLED]true"
+            fi
+          fi
+          # Give the first launch at least 20 s to finish its one-off work.
+          settle=$(( 20 - ($(date +%s) - launched) ))
+          (( settle > 0 )) && sleep "$settle"
           xcrun simctl terminate "$IOS_UDID" "$bundle_id" || true
-          echo "[warm-up] app installed and launched once in $(( $(date +%s) - start ))s"
-        displayName: Warm up simulator (install + first launch)
+          echo "[warm-up] app (+ WebDriverAgent) installed, app launched once, in $(( $(date +%s) - start ))s"
+        displayName: Warm up simulator (install app + WebDriverAgent, first launch)
         timeoutInMinutes: 8
         continueOnError: true
 
@@ -206,12 +233,25 @@ jobs:
           # WebDriverAgent launch: "preinstalled" installs the compiled runner app
           # and starts it directly (seconds); "xcodebuild" runs
           # test-without-building per session (~3.5 min on a hosted Intel Mac).
+          is_true() { [[ "${!1:-}" == true ]]; } # unset pipeline vars arrive as '$(NAME)'
           if [[ "${{ parameters.wdaLaunch }}" == preinstalled && -n "${IOS_WDA_RUNNER_APP:-}" && "$IOS_WDA_RUNNER_APP" != '$('* ]]; then
-            echo "[wda] preinstalled launch: $IOS_WDA_RUNNER_APP"
-            export IOS_PREBUILT_WDA_PATH="$IOS_WDA_RUNNER_APP"
             unset IOS_WDA_DERIVED_DATA_PATH
+            if is_true IOS_WDA_PREINSTALLED; then
+              echo "[wda] already installed by the warm-up step: Appium only launches it"
+              export IOS_WDA_PREINSTALLED=true
+            else
+              echo "[wda] preinstalled launch: $IOS_WDA_RUNNER_APP"
+              export IOS_WDA_PREINSTALLED=false IOS_PREBUILT_WDA_PATH="$IOS_WDA_RUNNER_APP"
+            fi
           else
             echo "[wda] xcodebuild launch (test-without-building)"
+            export IOS_WDA_PREINSTALLED=false
+          fi
+          # Installed by the warm-up step: drive it by bundle id. Each new
+          # session still starts with fresh app data (noReset=false scrubs it).
+          if is_true IOS_APP_PREINSTALLED; then
+            echo "[app] already installed by the warm-up step"
+            export IOS_APP_PATH=''
           fi
           suite_arg=""
           if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
@@ -234,6 +274,11 @@ jobs:
           IOS_HEADLESS: 'true'
           IOS_WDA_DERIVED_DATA_PATH: $(IOS_WDA_DERIVED_DATA_PATH)
           IOS_WDA_RUNNER_APP: $(IOS_WDA_RUNNER_APP)
+          IOS_WDA_PREINSTALLED: $(IOS_WDA_PREINSTALLED)
+          IOS_APP_PREINSTALLED: $(IOS_APP_PREINSTALLED)
+          # ios-simulator.sh already switched Reduce Motion on; Appium setting it
+          # again per session runs a slow in-simulator `defaults write`.
+          IOS_SET_REDUCE_MOTION: 'false'
           # xcodebuild output in the Appium log: 82% of all log lines and real CPU on a
           # starved agent. Turn on only to debug WebDriverAgent startup.
           IOS_SHOW_XCODE_LOG: 'false'

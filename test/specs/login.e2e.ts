@@ -23,11 +23,11 @@ import { users } from '../data/users';
 const sectionNames = (keys: readonly (keyof typeof HOME_SECTIONS)[]) =>
   keys.map((key) => HOME_SECTIONS[key].name);
 
+// No sign-out afterwards: in a full run the signed-in specs that follow
+// (wishlist, cleanup, logout) reuse this sign-in. The guest specs (cart,
+// quantity-promotions) run BEFORE this one — see SPEC_ORDER in
+// config/wdio.shared.conf.ts — since they don't sign out themselves.
 describe('Feature: Login @smoke', () => {
-  after(async () => {
-    await AuthFlow.signOutQuietly();
-  });
-
   it('Scenario: A customer signs in and sees the full Home page', async () => {
     await addFeature('Login');
     await addSeverity('blocker');

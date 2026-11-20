@@ -6,8 +6,7 @@
  * (`home-products-3`). Sections are therefore matched by pattern and found by
  * sweeping down the page once, so the checks hold however editors reorder it.
  */
-import { $$ } from '@wdio/globals';
-import { waitForFirstVisible } from '../core/elements';
+import { $$, driver } from '@wdio/globals';
 import { scroll } from '../core/gestures';
 import { createLogger } from '../core/logger';
 import { by, type Selector } from '../core/locators';
@@ -73,6 +72,8 @@ const ANY_SECTION = new RegExp(
   `^(?:${SECTION_KEYS.map((key) => SECTION_DEFS[key].pattern).join('|')})$`,
 );
 const PRODUCT_CARD = /^home-product-card-[0-9]+$/;
+/** The screen root or a top banner: what `waitForContent` looks for. */
+const HOME_CONTENT_PROBE = new RegExp(`^(?:home-screen|${SECTION_DEFS.topBanner.pattern})$`);
 
 
 class HomeScreenObject extends BaseScreen {
@@ -83,15 +84,28 @@ class HomeScreenObject extends BaseScreen {
   }
 
   /**
-   * Wait until CMS content has replaced the loading skeleton. The top banner is
-   * the first section in the published layout and only renders with content.
+   * Wait until Home is showing and CMS content has replaced the loading
+   * skeleton. The top banner is the first section in the published layout and
+   * only renders with content.
+   *
+   * Polled with one page source per check, not element queries: both nodes
+   * are non-accessible on iOS (find + displayed + accessible + rect each), and
+   * on a CI Mac those queries against Home took ~75 s; a page source takes
+   * 3–10 s there and well under a second on Android.
    */
   async waitForContent(timeout = 60_000): Promise<void> {
-    await this.waitForLoaded(timeout);
-    await waitForFirstVisible(HOME_SECTIONS.topBanner.selector(), {
-      timeout,
-      name: 'Home top banner (content loaded)',
-    });
+    const topBanner = new RegExp(`^${SECTION_DEFS.topBanner.pattern}$`);
+    await driver.waitUntil(
+      async () => {
+        const ids = (await nodesWithTestId(HOME_CONTENT_PROBE)).map((node) => node.testId);
+        return ids.includes('home-screen') && ids.some((id) => topBanner.test(id));
+      },
+      {
+        timeout,
+        interval: 500,
+        timeoutMsg: 'Expected the Home screen with its top banner (CMS content loaded)',
+      },
+    );
   }
 
   /**

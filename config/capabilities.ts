@@ -93,10 +93,12 @@ export function iosCapabilities(): Caps {
     'appium:wdaStartupRetryInterval': 10_000,
     'appium:simulatorStartupTimeout': 240_000,
     // React Native keeps animations running (skeleton shimmer); waiting for
-    // quiescence would stall every command.
-    'appium:waitForQuiescence': false,
+    // the app to idle would stall every command. (`waitForQuiescence` is the
+    // retired name of this; XCUITest 12 ignores it.)
     'appium:waitForIdleTimeout': 0,
-    'appium:reduceMotion': true,
+    // Omitted (not false) when CI has already switched it on: false would
+    // switch Reduce Motion off again.
+    'appium:reduceMotion': ios.setReduceMotion ? true : undefined,
 
     // Simulator speed-ups (CI): no simulator window, and WebDriverAgent that is
     // already compiled — Appium then only launches it. Compiling WDA inside the
@@ -108,10 +110,12 @@ export function iosCapabilities(): Caps {
           'appium:derivedDataPath': ios.wdaDerivedDataPath,
         }
       : {}),
-    ...(!isReal && !ios.wdaDerivedDataPath && ios.prebuiltWdaPath
+    // Preinstalled WDA: with a path, Appium installs that runner and launches
+    // it; already installed (CI warm-up), Appium only launches it.
+    ...(!isReal && !ios.wdaDerivedDataPath && (ios.wdaPreinstalled || ios.prebuiltWdaPath)
       ? {
           'appium:usePreinstalledWDA': true,
-          'appium:prebuiltWDAPath': ios.prebuiltWdaPath,
+          'appium:prebuiltWDAPath': ios.wdaPreinstalled ? undefined : ios.prebuiltWdaPath,
         }
       : {}),
     ...(ios.showXcodeLog ? { 'appium:showXcodeLog': true } : {}),

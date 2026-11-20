@@ -136,6 +136,18 @@ export const env = {
       return appPath('IOS_PREBUILT_WDA_PATH');
     },
     /**
+     * WebDriverAgentRunner is already installed on the simulator (the CI
+     * warm-up step installs it). Appium then only launches it, skipping the
+     * in-session install (~45 s per session on a hosted Mac).
+     */
+    wdaPreinstalled: bool('IOS_WDA_PREINSTALLED', false),
+    /**
+     * Have Appium switch on Reduce Motion at session start. CI turns it on
+     * while preparing the simulator, so it sets this to false and saves a
+     * slow in-simulator `defaults write` per session.
+     */
+    setReduceMotion: bool('IOS_SET_REDUCE_MOTION', true),
+    /**
      * DerivedData folder holding a WebDriverAgent already compiled with
      * `xcodebuild build-for-testing` (scripts/ci/build-wda.sh). When set,
      * Appium only launches WDA (test-without-building) instead of compiling it
