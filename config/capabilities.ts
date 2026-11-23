@@ -59,6 +59,12 @@ export function androidCapabilities(): Caps {
     'appium:uiautomator2ServerInstallTimeout': 120_000,
     'appium:uiautomator2ServerLaunchTimeout': 120_000,
     'appium:ignoreHiddenApiPolicyError': true,
+    // Same as iOS skipLogCapture: without it the driver streams the whole
+    // device log (`adb logcat`) into Appium's memory for the session, for
+    // getLogs('logcat'), which this suite never calls. On the 1-vCPU CI
+    // emulator every bit of device work competes with the app. CI dumps the
+    // device log after a failed run instead (android.yml).
+    'appium:skipLogcatCapture': true,
   });
 }
 

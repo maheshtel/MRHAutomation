@@ -5,6 +5,7 @@
 #   android-emulator.sh start [api-level] [device-profile]   create the AVD, boot it in the background
 #   android-emulator.sh wait                                  block until booted, tune it for automation
 #   android-emulator.sh install <apk>                         install the app once, permissions granted
+#   android-emulator.sh collect                               dump device logs (after a failed run)
 #   android-emulator.sh stop
 #
 # Works on Linux (needs /dev/kvm) and macOS (needs Hypervisor.framework);
@@ -12,7 +13,7 @@
 # `wait` exports ANDROID_UDID to the pipeline.
 set -euo pipefail
 
-cmd="${1:?start|wait|install|stop}"
+cmd="${1:?start|wait|install|collect|stop}"
 api_level="${2:-34}"
 device_profile="${3:-pixel_6}"
 
@@ -44,8 +45,19 @@ case "$(uname -m)" in
   arm64 | aarch64) abi="arm64-v8a" ;;
   *) abi="x86_64" ;;
 esac
-image="system-images;android-${api_level};google_apis;${abi}"
-avd_name="e2e_api${api_level}_${abi}"
+# System image flavour (EMULATOR_IMAGE_TAG). Both have Google Play services,
+# which the app needs (Firebase, notifications).
+#   google_apis  full phone image (default, proven in CI).
+#   google_atd   Google's "Automated Test Device" image for CI: SystemUI,
+#                Settings, bundled apps and many background services removed
+#                (~110 vs ~155 packages). Google measured 33-55% shorter test
+#                runs. Its hardware rendering is off, so screenshots and screen
+#                recordings may show a solid colour; UiAutomator2 reads the
+#                accessibility tree, so the tests themselves are unaffected.
+#                Not yet run in this pipeline: opt-in until a CI run proves it.
+image_tag="${EMULATOR_IMAGE_TAG:-google_apis}"
+image="system-images;android-${api_level};${image_tag};${abi}"
+avd_name="e2e_api${api_level}_${image_tag}_${abi}"
 
 sdk_tool() {
   local tool
@@ -75,7 +87,7 @@ start() {
   local packages=()
   [[ -x "$emulator" ]] || packages+=("emulator")
   [[ -x "$adb" ]] || packages+=("platform-tools")
-  [[ -d "$sdk/system-images/android-${api_level}/google_apis/${abi}" ]] || packages+=("$image")
+  [[ -d "$sdk/system-images/android-${api_level}/${image_tag}/${abi}" ]] || packages+=("$image")
   if (( ${#packages[@]} )); then
     log "Installing: ${packages[*]}"
     yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
@@ -194,6 +206,9 @@ wait_ready() {
     svc power stayon true;
     input keyevent 82
   " >/dev/null 2>&1 || true
+  # Room for a whole run's device log (the emulator's default is 2 MB, a few
+  # minutes): `collect` dumps it after a failed run.
+  adb_within 20 logcat -G 16M >/dev/null 2>&1 || true
 
   local udid
   udid="$(adb_within 10 devices | awk 'NR>1 && $2=="device" {print $1; exit}' || true)"
@@ -224,10 +239,26 @@ install_app() {
   echo "##vso[task.setvariable variable=ANDROID_APP_PREINSTALLED]true"
 }
 
+# Device-side evidence after a failed run (the iOS pipeline's simulator log
+# equivalent): the device log, the system's "isn't responding" / crash
+# records, and what is using the CPU now. Appium's own logcat stream is off
+# (skipLogcatCapture), so this is the only copy. Every call is bounded.
+collect() {
+  local dir="$suite_dir/logs/device"
+  mkdir -p "$dir"
+  adb_within 120 logcat -d -v threadtime -b main,system,crash,events >"$dir/logcat.txt" 2>&1 || true
+  adb_within 60 shell dumpsys dropbox --print system_app_anr system_app_crash data_app_anr data_app_crash \
+    >"$dir/anr-and-crashes.txt" 2>&1 || true
+  adb_within 20 shell top -b -n 1 -s 2 -o PID,%CPU,RES,ARGS >"$dir/top.txt" 2>&1 || true
+  adb_within 20 shell cat /proc/loadavg /proc/meminfo >"$dir/load-and-memory.txt" 2>&1 || true
+  ls -la "$dir"
+}
+
 case "$cmd" in
   start) start ;;
   wait) wait_ready ;;
   install) install_app "$@" ;;
+  collect) collect ;;
   stop) adb_within 30 emu kill >/dev/null 2>&1 || true ;;
-  *) fail "Unknown command '$cmd' (start|wait|install|stop)" ;;
+  *) fail "Unknown command '$cmd' (start|wait|install|collect|stop)" ;;
 esac

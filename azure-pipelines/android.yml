@@ -43,6 +43,14 @@ parameters:
     displayName: Emulator Android API level
     type: string
     default: '34'
+  # google_atd = Google's CI ("Automated Test Device") image: same Google Play
+  # services, far less background work. Lighter OS image = what made iOS fast
+  # (iOS 26 → 18). Opt-in until a CI run proves it (scripts/ci/android-emulator.sh).
+  - name: systemImage
+    displayName: Emulator system image (google_atd = lighter CI image, still has Google Play services)
+    type: string
+    default: google_apis
+    values: [google_apis, google_atd]
   # The emulator needs hardware acceleration (KVM on Linux, Hypervisor.framework
   # on macOS). Not every hosted image exposes it; the "Start emulator" step
   # checks within seconds and says so. If no hosted image works, use a scale-set
@@ -95,19 +103,21 @@ jobs:
           mkdir -p logs reports
           sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           case "$(uname -m)" in arm64|aarch64) abi=arm64-v8a ;; *) abi=x86_64 ;; esac
-          echo "##vso[task.setvariable variable=SYSTEM_IMAGE_DIR]$sdk/system-images/android-${{ parameters.apiLevel }}/google_apis/$abi"
+          echo "##vso[task.setvariable variable=SYSTEM_IMAGE_DIR]$sdk/system-images/android-${{ parameters.apiLevel }}/${{ parameters.systemImage }}/$abi"
           echo "##vso[task.setvariable variable=EMULATOR_ABI]$abi"
         displayName: Prepare agent
 
       - task: Cache@2
         displayName: Cache emulator system image
         inputs:
-          key: 'android-sysimg | "$(Agent.OS)" | "${{ parameters.apiLevel }}" | "$(EMULATOR_ABI)" | v1'
+          key: 'android-sysimg | "$(Agent.OS)" | "${{ parameters.apiLevel }}" | "${{ parameters.systemImage }}" | "$(EMULATOR_ABI)" | v1'
           path: $(SYSTEM_IMAGE_DIR)
 
       - bash: ./scripts/ci/android-emulator.sh start ${{ parameters.apiLevel }}
-        displayName: Start emulator (background boot)
+        displayName: Start emulator (background boot, ${{ parameters.systemImage }})
         timeoutInMinutes: 15
+        env:
+          EMULATOR_IMAGE_TAG: ${{ parameters.systemImage }}
 
       # ── 2. Toolchain + dependencies (cached node_modules = no npm install) ──
       - task: NodeTool@0
@@ -179,6 +189,31 @@ jobs:
           else
             echo "[app] not preinstalled: Appium installs $ANDROID_APP_PATH in the session"
           fi
+          # Same evidence as the iOS pipeline's host-resources.log, plus the
+          # guest: every 30 s, the agent's load / swap / top processes and the
+          # emulator's own load and top processes. On 2026-11-23 the first 4 min
+          # of lookups took 8–56 s each while the device was still busy after
+          # boot; this shows that (and what it was busy with) directly.
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          adb_within() { local s="$1"; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die' "$s" "$sdk/platform-tools/adb" "$@"; }
+          (
+            set +e +o pipefail # a failed sample must not end the sampler
+            while true; do
+              {
+                echo "=== $(date -u +%H:%M:%S)  host load: $(uptime | sed 's/.*load averages*: //')  $(sysctl -n vm.swapusage 2>/dev/null || free -m | awk '/Swap/ {print "swap used " $3 " MB"}')"
+                if [[ "$(uname -s)" == Darwin ]]; then
+                  top -l 2 -s 1 -n 6 -o cpu -stats pid,command,cpu,mem | tail -7
+                else
+                  top -b -n 1 -o %CPU | sed -n 7,13p
+                fi
+                echo "--- guest load: $(adb_within 10 shell cat /proc/loadavg 2>/dev/null | tr -d '\r')"
+                adb_within 15 shell top -b -n 1 -q -s 2 -o PID,%CPU,RES,ARGS 2>/dev/null | tr -d '\r' | sed -n 1,6p | cut -c1-140
+              } >> logs/host-resources.log 2>&1
+              sleep 30
+            done
+          ) &
+          sampler=$!
+          trap 'kill "$sampler" 2>/dev/null || true' EXIT
           suite_arg=""
           if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
           npx wdio run config/wdio.android.conf.ts $suite_arg
@@ -215,13 +250,24 @@ jobs:
           testResultsFiles: reports/junit/*.xml
           mergeTestResults: true
           failTaskOnFailedTests: false
-          testRunTitle: Android · ${{ parameters.suite }} · API ${{ parameters.apiLevel }}
+          testRunTitle: Android · ${{ parameters.suite }} · API ${{ parameters.apiLevel }} ${{ parameters.systemImage }}
 
       - bash: |
           export JAVA_HOME="${JAVA_HOME_17_X64:-${JAVA_HOME_17_arm64:-${JAVA_HOME:-}}}"
           npx allure generate reports/allure-results --clean --single-file -o reports/allure-report
         displayName: Build Allure report (single HTML file)
         condition: succeededOrFailed()
+        continueOnError: true
+
+      # Device log, "isn't responding" / crash records and the device's top
+      # processes into logs/device (Appium's own logcat stream is off:
+      # skipLogcatCapture). Only when something failed, like the iOS
+      # pipeline's simulator log: failing tests leave the job
+      # "SucceededWithIssues" (continueOnError), which still collects it.
+      - bash: ./scripts/ci/android-emulator.sh collect
+        displayName: Collect device log + ANR / crash records (only when something failed)
+        condition: and(always(), ne(variables['Agent.JobStatus'], 'Succeeded'))
+        timeoutInMinutes: 6
         continueOnError: true
 
       - task: PublishPipelineArtifact@1
