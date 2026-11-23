@@ -42,14 +42,29 @@ export interface TapPastKeyboardOptions extends WaitOptions {
   returnKey?: string;
 }
 
-/** Android: BACK closes the keyboard and never submits anything. No-op on iOS. */
-export async function hideAndroidKeyboard(): Promise<void> {
-  if (!isAndroid()) return; // iOS can only "hide" by pressing a key — see above
-  try {
-    if (await driver.isKeyboardShown()) await driver.hideKeyboard();
-  } catch {
-    // Keyboard already gone — nothing to do.
-  }
+/** Android ESCAPE: the open keyboard consumes it and closes; it submits nothing. */
+const KEYCODE_ESCAPE = 111;
+
+/**
+ * Android: close the keyboard with ESC and wait until it is gone. Never BACK.
+ * No-op on iOS (it can only "hide" by pressing a key — see above).
+ *
+ * Not `driver.hideKeyboard()`: Appium sends ESC, waits only 1 s, then sends
+ * BACK. On a slow device the keyboard takes longer than that to close, so the
+ * BACK reached the app instead and navigated off the screen — on CI
+ * (2026-11-23) it left the Login screen mid-test, twice ("Sign in button" not
+ * displayed). ESC is only sent while the keyboard is shown: with no keyboard,
+ * Android's default key map turns an unhandled ESC into BACK as well.
+ */
+export async function hideAndroidKeyboard(timeout = env.run.waitTimeout): Promise<void> {
+  if (!isAndroid()) return;
+  if (!(await driver.isKeyboardShown())) return;
+  await driver.pressKeyCode(KEYCODE_ESCAPE);
+  await driver.waitUntil(async () => !(await driver.isKeyboardShown()), {
+    timeout,
+    interval: 300,
+    timeoutMsg: `The keyboard was still open ${Math.round(timeout / 1000)}s after ESC`,
+  });
 }
 
 /** Top edge of the iOS keyboard, or undefined when it is not on screen. */
@@ -124,7 +139,7 @@ export async function dismissKeyboardByTapping(plainContent: Selector, name: str
  * Tap a control that follows text entry (Sign in, Apply, Create) without first
  * pressing the keyboard's return key.
  *
- * Android: hide the keyboard with BACK, then tap.
+ * Android: hide the keyboard (ESC, see `hideAndroidKeyboard`), then tap.
  *
  * iOS: tap straight through the open keyboard when the control is above it.
  * A control UNDER the keyboard is reported not visible by XCUITest, so it must

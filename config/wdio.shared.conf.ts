@@ -51,14 +51,6 @@ const specGroup = (names: readonly string[]) =>
 const attemptOf = (test: unknown): number =>
   (test as { _currentRetry?: number })._currentRetry ?? 0;
 
-/**
- * Whether the last finished test attempt failed. In a shared session the next
- * spec must not start from the screen a failed spec left behind (an open sheet,
- * a half-typed field), so beforeSuite restarts the app then. Passing specs hand
- * over directly: every spec's "Given" steps navigate to their own start point.
- */
-let lastAttemptFailed = false;
-
 export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
   runner: 'local',
   tsConfigPath: '../tsconfig.json',
@@ -94,7 +86,7 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
 
   // Retries, two levels:
   //  • TEST_RETRIES (default 2): a failing test is re-run inside the same
-  //    session, after the app is restarted (see beforeTest below).
+  //    session, after the app is restarted (see resetAfterFailedAttempt).
   //  • SPEC_FILE_RETRIES (default 0): the whole spec file is re-run in a
   //    brand-new session — for device/driver crashes a restart can't fix.
   //    With SHARED_SESSION the "file" is the whole group, so a retry re-runs
@@ -145,41 +137,13 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
     await App.waitUntilReady();
   },
 
-  /**
-   * Runs before each spec file's top-level describe. In a shared session, a
-   * spec that follows a failure gets the same reset a retry gets in
-   * beforeTest (see resetAfterFailure).
-   */
-  beforeSuite: async (suite) => {
-    // Top-level describe only (a nested describe has a parent title).
-    if (!lastAttemptFailed || suite.parent) return;
-    log.warn(`Previous spec failed; resetting before "${suite.title}"`);
-    lastAttemptFailed = false;
-    await resetAfterFailure();
-  },
-
-  /**
-   * Runs before every attempt of every test. A retry must not start from the
-   * screen the failed attempt left behind (an open sheet, a half-typed field),
-   * so the app is restarted first. Data is kept: a signed-in user stays signed
-   * in, and the scenario's own "Given" steps re-establish the rest. If the
-   * failure killed the automation backend itself (WebDriverAgent /
-   * UiAutomator2), a restart is impossible: resetAfterFailure starts a fresh
-   * session on a healthy device instead (src/core/session.ts).
-   */
-  beforeTest: async (test) => {
-    const attempt = attemptOf(test);
-    if (attempt > 0) {
-      log.warn(`Retry ${attempt}/${env.run.retries} of "${test.title}" — resetting the app`);
-      await resetAfterFailure();
-    }
+  beforeTest: async () => {
     if (env.run.recordVideo) await driver.startRecordingScreen().catch(() => undefined);
   },
 
   afterTest: async (test, _context, { passed, error, duration }) => {
     const attempt = attemptOf(test);
     const title = `${test.parent} — ${test.title}${attempt > 0 ? ` (retry ${attempt})` : ''}`;
-    lastAttemptFailed = !passed;
     if (!passed) {
       // Printed now (not only in the end-of-run summary) so a CI log shows the
       // reason even if the job is cut short.
@@ -203,5 +167,31 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
       const video = await driver.stopRecordingScreen().catch(() => '');
       if (!passed && typeof video === 'string') await attachVideo(video, title);
     }
+    if (!passed) await resetAfterFailedAttempt(title);
   },
 };
+
+/**
+ * Reset after every failed test attempt, once the evidence above is captured.
+ * Nothing that runs next may start from the screen the failure left behind (an
+ * open keyboard over the tab bar, a sheet, a half-typed field): not the spec's
+ * own teardown (`after` hooks), not a retry, not the next spec in a shared
+ * session. Data is kept: a signed-in user stays signed in, and each scenario's
+ * "Given" steps re-establish the rest. If the failure killed the automation
+ * backend (WebDriverAgent / UiAutomator2), resetAfterFailure starts a fresh
+ * session on a healthy device instead (src/core/session.ts).
+ *
+ * Here and not in beforeSuite: WebdriverIO runs the config's beforeSuite ONCE
+ * per worker (a single root-suite hook), and a shared session runs every spec
+ * in one worker — so a reset there never ran between specs. On 2026-11-23 an
+ * open keyboard left by a failed spec failed all four specs after it.
+ */
+async function resetAfterFailedAttempt(title: string): Promise<void> {
+  log.warn(`Resetting the app after the failure of "${title}"`);
+  try {
+    await resetAfterFailure();
+  } catch (error) {
+    // WebdriverIO would swallow it; say so, the next test will fail on its own.
+    log.error(`Reset after "${title}" failed: ${(error as Error).message}`);
+  }
+}

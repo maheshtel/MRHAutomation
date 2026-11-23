@@ -72,7 +72,7 @@ class SearchOverlayObject extends BaseScreen {
 
     // Never press the search field's return key: it commits the query and
     // replaces this typeahead with the results page. Android hides the
-    // keyboard with BACK; on iOS the first row sits above the keyboard and the
+    // keyboard with ESC (never BACK); on iOS the first row sits above the keyboard and the
     // list (keyboardShouldPersistTaps="handled") takes the tap directly.
     await hideAndroidKeyboard();
     await first.click();
