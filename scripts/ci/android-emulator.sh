@@ -26,6 +26,17 @@ boot_timeout_s="${EMULATOR_BOOT_TIMEOUT:-600}"
 log() { echo "[emulator] $*"; }
 fail() { echo "##vso[task.logissue type=error]$*"; exit 1; }
 
+# adb with a time limit. On a starved emulator one `adb shell` can block
+# indefinitely, and a loop's deadline is only checked BETWEEN adb calls: on
+# 2026-11-23 the boot wait ran 40 min, far past its own deadline. perl's
+# alarm survives exec (perl ships with macOS and Ubuntu; coreutils `timeout`
+# is not on macOS). Exit status 142 = the limit was hit.
+adb_within() {
+  local secs="$1"
+  shift
+  perl -e 'alarm shift @ARGV; exec @ARGV or die "exec $ARGV[0]: $!\n"' "$secs" "$adb" "$@"
+}
+
 # sdkmanager / avdmanager need Java 17+. Hosted images ship several JDKs.
 export JAVA_HOME="${JAVA_HOME_17_X64:-${JAVA_HOME_17_arm64:-${JAVA_HOME:-}}}"
 
@@ -108,10 +119,8 @@ EOF
   "$adb" start-server >/dev/null 2>&1
   # -no-snapshot: cold boot every time (no stale state, no snapshot save on exit).
   # swiftshader_indirect: software GPU, the reliable choice on GPU-less agents.
-  # -no-metrics: no usage reporting, and no "WARNING - ACTION REQUIRED" banner
-  # (a future emulator release turns that banner into a blocking prompt).
   nohup "$emulator" -avd "$avd_name" \
-    -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
+    -no-window -no-audio -no-boot-anim -no-snapshot \
     -gpu swiftshader_indirect -camera-back none -camera-front none \
     -cores "$cores" -memory 3072 -netfast \
     -dns-server 8.8.8.8,1.1.1.1 \
@@ -119,15 +128,46 @@ EOF
   log "Emulator PID $!"
 }
 
-wait_ready() {
-  local deadline=$(( $(date +%s) + boot_timeout_s ))
-  local start_ts
-  start_ts=$(date +%s)
+# Evidence for a slow or stuck boot, printed live to the step log: an agent
+# that stops responding never uploads logs/ (2026-11-23: "Final logs are
+# missing"), but the console lines it already printed are visible.
+emulator_log_shown=0
+boot_progress() {
+  local elapsed="$1" state boot pid usage swap total
+  state="$(adb_within 10 get-state 2>/dev/null | tr -d '\r' || true)"
+  boot="$(adb_within 10 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  pid="$(pgrep -f qemu-system | sed -n 1p || true)"
+  usage="$([[ -n "$pid" ]] && ps -o %cpu=,rss= -p "$pid" | awk '{printf "%s%% CPU, %d MB", $1, $2 / 1024}' || true)"
+  swap="$(sysctl -n vm.swapusage 2>/dev/null || free -m 2>/dev/null | awk '/Swap/ {print "swap used " $3 " MB"}' || true)"
+  log "+${elapsed}s adb=${state:-none} boot_completed=${boot:-?} emulator=[${usage:-not running}] load=[$(uptime | sed 's/.*load averages*: //')] ${swap}"
+  # New emulator.log lines (minus the long adb key lines).
+  total="$(wc -l <"$emulator_log" 2>/dev/null | tr -d ' ' || echo 0)"
+  if (( total > emulator_log_shown )); then
+    sed -n "$(( emulator_log_shown + 1 )),${total}p" "$emulator_log" \
+      | grep -vi 'pubkey\|public key' | sed 's/^/  [emulator.log] /' || true
+    emulator_log_shown="$total"
+  fi
+}
 
-  until "$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' | grep -qx 1; do
-    if (( $(date +%s) > deadline )); then
+wait_ready() {
+  local start_ts now next_report=0
+  start_ts=$(date +%s)
+  local deadline=$(( start_ts + boot_timeout_s ))
+
+  # Booted = boot_completed AND the package manager answers (installs fail
+  # until it does). Both checks are time-limited and share one deadline.
+  # `grep >/dev/null`, not `grep -q`: -q exits early and, under pipefail, the
+  # writer's SIGPIPE would turn a match into a failure.
+  until adb_within 15 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' | grep -x 1 >/dev/null \
+    && adb_within 30 shell pm path android 2>/dev/null | grep package >/dev/null; do
+    now=$(date +%s)
+    if (( now >= next_report )); then
+      boot_progress $(( now - start_ts ))
+      next_report=$(( now + 30 ))
+    fi
+    if (( now > deadline )); then
       tail -50 "$emulator_log" || true
-      fail "Emulator did not boot within ${boot_timeout_s}s"
+      fail "Emulator did not boot within ${boot_timeout_s}s (progress lines above)"
     fi
     if ! pgrep -f "qemu-system|emulator.*-avd" >/dev/null; then
       tail -50 "$emulator_log" || true
@@ -135,14 +175,13 @@ wait_ready() {
     fi
     sleep 3
   done
-  # boot_completed flips before the package manager answers; installs fail until it does.
-  until "$adb" shell pm path android 2>/dev/null | grep -q package; do sleep 2; done
   log "Booted in $(( $(date +%s) - start_ts ))s after this step started"
+  boot_progress $(( $(date +%s) - start_ts ))
 
   # Automation-friendly device: no animations (deterministic waits), screen
   # always on and unlocked, no install verification (faster 130 MB installs),
   # no first-run hints or spell-check popups.
-  "$adb" shell "
+  adb_within 60 shell "
     settings put global window_animation_scale 0;
     settings put global transition_animation_scale 0;
     settings put global animator_duration_scale 0;
@@ -157,14 +196,14 @@ wait_ready() {
   " >/dev/null 2>&1 || true
 
   local udid
-  udid="$("$adb" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+  udid="$(adb_within 10 devices | awk 'NR>1 && $2=="device" {print $1; exit}' || true)"
   [[ -n "$udid" ]] || fail "No emulator listed by adb devices"
-  log "Ready: $udid (API $("$adb" shell getprop ro.build.version.sdk | tr -d '\r'))"
+  log "Ready: $udid (API $(adb_within 10 shell getprop ro.build.version.sdk | tr -d '\r'))"
   # One snapshot of what the device is busy with right after boot. The emulator
   # drops to 1 virtual core on hosts with < 6 logical cores (emulator.log), so
   # post-boot work (dexopt, Play services) competes directly with the installs.
-  log "Guest CPUs: $("$adb" shell nproc 2>/dev/null | tr -d '\r'); host load: $(uptime | sed 's/.*load averages*: //')"
-  "$adb" shell top -b -n 1 -m 8 2>/dev/null | tr -d '\r' || true
+  log "Guest CPUs: $(adb_within 10 shell nproc 2>/dev/null | tr -d '\r'); host load: $(uptime | sed 's/.*load averages*: //')"
+  adb_within 20 shell top -b -n 1 -m 8 2>/dev/null | tr -d '\r' || true
   echo "##vso[task.setvariable variable=ANDROID_UDID]$udid"
 }
 
@@ -173,7 +212,10 @@ install_app() {
   local start_ts
   start_ts=$(date +%s)
   # -r replace, -g grant runtime permissions, -t allow test-only builds.
-  "$adb" install -r -g -t "$apk"
+  # Bounded below the step's 10 min timeout, so a stuck install fails with a
+  # message (and the test step then falls back to Appium installing).
+  adb_within 540 install -r -g -t "$apk" \
+    || fail "adb install did not finish (exit $?; 142 = still running after 540 s)"
   log "Installed $(basename "$apk") in $(( $(date +%s) - start_ts ))s"
   # Tells the test step to drive the installed app by package name. Without
   # it the test step hands Appium the APK and every session reinstalls it
@@ -186,6 +228,6 @@ case "$cmd" in
   start) start ;;
   wait) wait_ready ;;
   install) install_app "$@" ;;
-  stop) "$adb" emu kill >/dev/null 2>&1 || true ;;
+  stop) adb_within 30 emu kill >/dev/null 2>&1 || true ;;
   *) fail "Unknown command '$cmd' (start|wait|install|stop)" ;;
 esac

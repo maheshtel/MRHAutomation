@@ -140,9 +140,13 @@ jobs:
           APP_SAS_TOKEN: $(APP_SAS_TOKEN)
 
       # ── 4. Device ready ───────────────────────────────────────────────────
+      # The script gives up on its own after EMULATOR_BOOT_TIMEOUT (600 s) with
+      # its progress lines in this log; the step timeout sits above that (the
+      # boot deadline + one bounded check + the post-boot settings), so the
+      # script, not Azure, ends a stuck boot.
       - bash: ./scripts/ci/android-emulator.sh wait
         displayName: Wait for emulator boot + disable animations
-        timeoutInMinutes: 12
+        timeoutInMinutes: 15
 
       - ${{ if eq(parameters.installOnce, true) }}:
           # Installed once here; each session then starts with `pm clear` (fresh
