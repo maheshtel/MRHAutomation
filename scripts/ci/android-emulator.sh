@@ -108,8 +108,10 @@ EOF
   "$adb" start-server >/dev/null 2>&1
   # -no-snapshot: cold boot every time (no stale state, no snapshot save on exit).
   # swiftshader_indirect: software GPU, the reliable choice on GPU-less agents.
+  # -no-metrics: no usage reporting, and no "WARNING - ACTION REQUIRED" banner
+  # (a future emulator release turns that banner into a blocking prompt).
   nohup "$emulator" -avd "$avd_name" \
-    -no-window -no-audio -no-boot-anim -no-snapshot \
+    -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
     -gpu swiftshader_indirect -camera-back none -camera-front none \
     -cores "$cores" -memory 3072 -netfast \
     -dns-server 8.8.8.8,1.1.1.1 \
@@ -158,6 +160,11 @@ wait_ready() {
   udid="$("$adb" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
   [[ -n "$udid" ]] || fail "No emulator listed by adb devices"
   log "Ready: $udid (API $("$adb" shell getprop ro.build.version.sdk | tr -d '\r'))"
+  # One snapshot of what the device is busy with right after boot. The emulator
+  # drops to 1 virtual core on hosts with < 6 logical cores (emulator.log), so
+  # post-boot work (dexopt, Play services) competes directly with the installs.
+  log "Guest CPUs: $("$adb" shell nproc 2>/dev/null | tr -d '\r'); host load: $(uptime | sed 's/.*load averages*: //')"
+  "$adb" shell top -b -n 1 -m 8 2>/dev/null | tr -d '\r' || true
   echo "##vso[task.setvariable variable=ANDROID_UDID]$udid"
 }
 
@@ -168,6 +175,11 @@ install_app() {
   # -r replace, -g grant runtime permissions, -t allow test-only builds.
   "$adb" install -r -g -t "$apk"
   log "Installed $(basename "$apk") in $(( $(date +%s) - start_ts ))s"
+  # Tells the test step to drive the installed app by package name. Without
+  # it the test step hands Appium the APK and every session reinstalls it
+  # (enforceAppInstall): on the hosted Mac's 1-vCPU emulator that reinstall
+  # outlasted Appium's 240 s install timeout twice per session (2026-11-23).
+  echo "##vso[task.setvariable variable=ANDROID_APP_PREINSTALLED]true"
 }
 
 case "$cmd" in

@@ -145,11 +145,14 @@ jobs:
         timeoutInMinutes: 12
 
       - ${{ if eq(parameters.installOnce, true) }}:
-          # Installed once here; each spec then starts with `pm clear` (fresh app
-          # data) instead of reinstalling the 130 MB APK per spec file.
+          # Installed once here; each session then starts with `pm clear` (fresh
+          # app data) instead of reinstalling the 130 MB APK. On success the
+          # script sets ANDROID_APP_PREINSTALLED, which the test step reads; if
+          # this step fails, the flag stays unset and Appium installs instead.
           - bash: ./scripts/ci/android-emulator.sh install "$(ANDROID_APP_PATH)"
             displayName: Install APK on emulator
             timeoutInMinutes: 10
+            continueOnError: true
 
       # ── 5. Tests ──────────────────────────────────────────────────────────
       - bash: |
@@ -160,6 +163,18 @@ jobs:
               exit 1
             fi
           done
+          # Installed by the "Install APK" step: drive it by package name, so
+          # Appium does not reinstall it. Cleared here in the script, not with
+          # an empty `ANDROID_APP_PATH: ''` under env: that did not override
+          # the pipeline variable set by download-app.sh (2026-11-23: the
+          # session still got appium:app, and each reinstall hit the 240 s
+          # install timeout).
+          if [[ "${ANDROID_APP_PREINSTALLED:-}" == true ]]; then # unset arrives as '$(NAME)'
+            echo "[app] already installed by the 'Install APK' step: Appium drives it by package name"
+            export ANDROID_APP_PATH=''
+          else
+            echo "[app] not preinstalled: Appium installs $ANDROID_APP_PATH in the session"
+          fi
           suite_arg=""
           if [[ "${{ parameters.suite }}" != all ]]; then suite_arg="--suite ${{ parameters.suite }}"; fi
           npx wdio run config/wdio.android.conf.ts $suite_arg
@@ -175,10 +190,8 @@ jobs:
           TEST_USER_PASSWORD: $(TEST_USER_PASSWORD)
           ANDROID_DEVICE_TYPE: emulator
           ANDROID_UDID: $(ANDROID_UDID)
-          ${{ if eq(parameters.installOnce, true) }}:
-            ANDROID_APP_PATH: '' # already installed — drive it by package name
-          ${{ else }}:
-            ANDROID_APP_PATH: $(ANDROID_APP_PATH)
+          ANDROID_APP_PATH: $(ANDROID_APP_PATH)
+          ANDROID_APP_PREINSTALLED: $(ANDROID_APP_PREINSTALLED)
           TEST_RETRIES: ${{ parameters.retries }}
           # A spec whose session could not start is re-run once at the end of the
           # run (new session, warmed-up device) instead of failing outright.
