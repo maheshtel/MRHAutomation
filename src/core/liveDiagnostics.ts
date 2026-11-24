@@ -14,6 +14,7 @@
  *     `##vso[artifact.upload]` logging command, so whatever finished survives.
  */
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { env } from '../../config/env';
 
@@ -29,10 +30,35 @@ function workerLog(cid: string): string | undefined {
   return name ? path.join(env.paths.logs, name) : undefined;
 }
 
+/**
+ * Every upload goes to ONE container folder. Azure binds an artifact name to
+ * the container folder of its first `artifact.upload`; a later upload under
+ * the same name but another folder fails to associate ("artifact already
+ * exists"). The agent then marks the test step failed (red) even when every
+ * test passed (2026-11-24, Android and iOS), and that file is missing from the
+ * artifact. The folder goes into the file name instead
+ * (`appium-snapshots__wdio-appium-after-0-0.log`), on a copy staged in the OS
+ * temp dir (not reports/ or logs/, which are published again at the end).
+ */
+const LIVE_CONTAINER_FOLDER = 'live';
+const STAGING_DIR = path.join(os.tmpdir(), 'e2e-live-upload');
+
 function upload(file: string, folder: string): void {
   if (!onAzure || uploaded.has(file) || !existsSync(file)) return;
   uploaded.add(file);
-  console.log(`##vso[artifact.upload containerfolder=${folder};artifactname=${artifactName}]${file}`);
+  try {
+    mkdirSync(STAGING_DIR, { recursive: true });
+    const staged = path.join(
+      STAGING_DIR,
+      `${folder.replace(/[\\/]+/g, '__')}__${path.basename(file)}`,
+    );
+    copyFileSync(file, staged);
+    console.log(
+      `##vso[artifact.upload containerfolder=${LIVE_CONTAINER_FOLDER};artifactname=${artifactName}]${staged}`,
+    );
+  } catch {
+    // Best effort: diagnostics must never fail a hook or the run.
+  }
 }
 
 function filesUnder(dir: string): string[] {
