@@ -36,12 +36,30 @@ fetch() {
     --output "$1" "$download_url"
 }
 
+# Why a download failed, in words: asks the server once more for the status
+# and Azure's error text (the token stays in the URL, never printed).
+# Android only for now; the iOS branch below is unchanged.
+explain_download_failure() {
+  local status
+  status="$(curl --silent --head --location --connect-timeout 30 "$download_url" 2>/dev/null \
+    | tr -d '\r' | grep -E '^HTTP/' | tail -1)"
+  log "Server answered: ${status:-no response} (SAS token supplied: $([[ -n "$token" ]] && echo yes || echo no))"
+  local hint
+  case "$status" in
+    *" 409 "*Public\ access*) hint="This storage account allows no anonymous downloads. Put a read SAS token for it in the secret variable APP_SAS_TOKEN (variable group mrh-e2e)." ;;
+    *" 403 "*) hint="The storage account rejected the request: APP_SAS_TOKEN is wrong, expired, lacks Read, or belongs to another storage account (or the account is disabled — see the text above)." ;;
+    *" 404 "*) hint="No such file: check the container and file name in the URL parameter." ;;
+    *) hint="See the server answer above." ;;
+  esac
+  echo "##vso[task.logissue type=error]App download failed: ${status%.}. $hint"
+}
+
 start=$(date +%s)
 log "Downloading $url"
 
 if [[ "$platform" == android ]]; then
   target="$apps_dir/app-under-test.apk"
-  fetch "$target"
+  fetch "$target" || { explain_download_failure; exit 1; }
   # An APK is a zip: "PK" magic bytes. Catches HTML error pages saved as .apk.
   [[ "$(head -c 2 "$target")" == PK ]] || { log "Downloaded file is not an APK"; exit 1; }
   echo "##vso[task.setvariable variable=ANDROID_APP_PATH]$target"

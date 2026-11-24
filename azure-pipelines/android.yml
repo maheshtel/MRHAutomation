@@ -199,9 +199,14 @@ jobs:
           # boot; this shows that (and what it was busy with) directly.
           sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           adb_within() { local s="$1"; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die' "$s" "$sdk/platform-tools/adb" "$@"; }
+          # The guest's process list (`top`) costs the 1-vCPU emulator 7–23% of
+          # its CPU for a moment (2026-11-24), so it is listed every 3rd sample
+          # (~90 s); the load average is a cheap file read, every sample.
           (
             set +e +o pipefail # a failed sample must not end the sampler
+            n=0
             while true; do
+              n=$(( n + 1 ))
               {
                 echo "=== $(date -u +%H:%M:%S)  host load: $(uptime | sed 's/.*load averages*: //')  $(sysctl -n vm.swapusage 2>/dev/null || free -m | awk '/Swap/ {print "swap used " $3 " MB"}')"
                 if [[ "$(uname -s)" == Darwin ]]; then
@@ -210,7 +215,9 @@ jobs:
                   top -b -n 1 -o %CPU | sed -n 7,13p
                 fi
                 echo "--- guest load: $(adb_within 10 shell cat /proc/loadavg 2>/dev/null | tr -d '\r')"
-                adb_within 15 shell top -b -n 1 -q -s 2 -o PID,%CPU,RES,ARGS 2>/dev/null | tr -d '\r' | sed -n 1,6p | cut -c1-140
+                if (( n % 3 == 1 )); then
+                  adb_within 15 shell top -b -n 1 -q -s 2 -o PID,%CPU,RES,ARGS 2>/dev/null | tr -d '\r' | sed -n 1,6p | cut -c1-140
+                fi
               } >> logs/host-resources.log 2>&1
               sleep 30
             done

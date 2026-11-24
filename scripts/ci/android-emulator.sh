@@ -245,6 +245,12 @@ install_app() {
 # (skipLogcatCapture), so this is the only copy. Every call is bounded.
 collect() {
   local dir="$suite_dir/logs/device"
+  # No emulator (an earlier step failed before it started, or it died): adb
+  # would wait for one ("waiting for device") until each time limit runs out.
+  if [[ "$(adb_within 10 get-state 2>/dev/null | tr -d '\r' || true)" != device ]]; then
+    log "No emulator attached (it never started or has stopped): no device logs to collect"
+    return 0
+  fi
   mkdir -p "$dir"
   adb_within 120 logcat -d -v threadtime -b main,system,crash,events >"$dir/logcat.txt" 2>&1 || true
   adb_within 60 shell dumpsys dropbox --print system_app_anr system_app_crash data_app_anr data_app_crash \
