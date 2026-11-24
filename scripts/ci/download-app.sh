@@ -21,6 +21,8 @@ mkdir -p "$apps_dir"
 log() { echo "[download-app] $*"; }
 
 token="${APP_SAS_TOKEN:-}"
+# A token pasted into the Library with a stray space / newline breaks the URL.
+token="$(printf '%s' "$token" | tr -d '[:space:]')"
 token="${token#\?}"
 # An undefined pipeline variable arrives literally as "$(APP_SAS_TOKEN)".
 [[ "$token" == '$('* ]] && token=""
@@ -37,8 +39,8 @@ fetch() {
 }
 
 # Why a download failed, in words: asks the server once more for the status
-# and Azure's error text (the token stays in the URL, never printed).
-# Android only for now; the iOS branch below is unchanged.
+# and Azure's error text (the token stays in the URL, never printed). Runs
+# only after a failed download, so a working one is unaffected.
 explain_download_failure() {
   local status
   status="$(curl --silent --head --location --connect-timeout 30 "$download_url" 2>/dev/null \
@@ -47,7 +49,7 @@ explain_download_failure() {
   local hint
   case "$status" in
     *" 409 "*Public\ access*) hint="This storage account allows no anonymous downloads. Put a read SAS token for it in the secret variable APP_SAS_TOKEN (variable group mrh-e2e)." ;;
-    *" 403 "*) hint="The storage account rejected the request: APP_SAS_TOKEN is wrong, expired, lacks Read, or belongs to another storage account (or the account is disabled — see the text above)." ;;
+    *" 403 "*) hint="The storage account rejected the request: APP_SAS_TOKEN is wrong, expired, lacks Read, belongs to another storage account, or was made for one file only (sr=b, e.g. Generate SAS on mrh.apk), which works for no other file: use a container SAS (sr=c) on the container (or the account may be disabled — see the text above)." ;;
     *" 404 "*) hint="No such file: check the container and file name in the URL parameter." ;;
     *) hint="See the server answer above." ;;
   esac
@@ -65,7 +67,7 @@ if [[ "$platform" == android ]]; then
   echo "##vso[task.setvariable variable=ANDROID_APP_PATH]$target"
 else
   archive="$(mktemp -d)/app.zip"
-  fetch "$archive"
+  fetch "$archive" || { explain_download_failure; exit 1; }
   extract_dir="$apps_dir/ios"
   rm -rf "$extract_dir" && mkdir -p "$extract_dir"
   # ditto keeps the bundle's symlinks and permissions intact (unzip can break
