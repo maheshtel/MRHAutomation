@@ -42,7 +42,7 @@ parameters:
   - name: appZipUrl
     displayName: Simulator .app.zip URL
     type: string
-    default: https://autoteststoragemahesh.blob.core.windows.net/maheshcontainer/MountainRose.app.zip
+    default: https://mrhapp.blob.core.windows.net/mrhcontainer/MountainRose.app.zip
   - name: deviceName
     displayName: Simulator device
     type: string
