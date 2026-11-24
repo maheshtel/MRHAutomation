@@ -119,6 +119,46 @@ async function rootAppearsAfterTap(root: Selector): Promise<boolean> {
   return isAndroid() ? isVisible(root) : false;
 }
 
+/**
+ * Android: the Cart tab is found ONCE and only its label is re-read (found
+ * again only if the read fails). The element keeps its id while the label
+ * changes ("Cart tab" → "Cart tab, 1 item"). The budget is twice the wait
+ * timeout because the badge only changes after the server round-trip. On
+ * 2026-11-24 CI a find took 8–14 s against ~0.4 s for a label read, so a
+ * find-per-poll loop got 3 reads in 45 s. Add to Cart was tapped at
+ * 13:22:09, the badge read "Cart tab, 1 item" by 13:22:59, and the wait had
+ * already failed ("last saw -1") ~5 s earlier.
+ */
+async function waitForCartCountAndroid(expected: number, timeout: number): Promise<void> {
+  let elementId: string | undefined;
+  let last: number | undefined;
+  try {
+    await driver.waitUntil(
+      async () => {
+        elementId ??= (await $$(tabSelector('Cart')).getElements())[0]?.elementId;
+        const label = elementId
+          ? await driver.getElementAttribute(elementId, 'content-desc').catch(() => null)
+          : null;
+        if (label === null || label === undefined) {
+          elementId = undefined; // stale or not found: find it again next time
+          return false;
+        }
+        last = parseCartCount(label);
+        return last === expected;
+      },
+      { timeout, interval: 500 },
+    );
+  } catch (error) {
+    // Built here, not as timeoutMsg: that string is fixed before the first
+    // poll, which is why the old message always said "last saw -1".
+    throw new Error(
+      `Expected the cart tab to report ${expected} item(s) within ${Math.round(timeout / 1000)}s, ` +
+        (last === undefined ? 'but the Cart tab could not be read' : `last saw ${last}`),
+      { cause: error },
+    );
+  }
+}
+
 export const TabBar = {
   /**
    * Open a tab at its root screen. If the tab resumes on a deeper screen,
@@ -144,6 +184,7 @@ export const TabBar = {
   },
 
   async waitForCartCount(expected: number, timeout = env.run.waitTimeout): Promise<void> {
+    if (isAndroid()) return waitForCartCountAndroid(expected, Math.max(timeout, 2 * env.run.waitTimeout));
     let last = -1;
     await driver.waitUntil(
       async () => {

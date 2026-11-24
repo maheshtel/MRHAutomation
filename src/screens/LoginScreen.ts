@@ -4,8 +4,8 @@
  * DSInput puts the testID on the TextInput itself and renders the field error
  * in `<testID>-subtext`.
  */
-import { $ } from '@wdio/globals';
-import { isVisible, typeText } from '../core/elements';
+import { $, $$ } from '@wdio/globals';
+import { getLabel, isVisible, typeText } from '../core/elements';
 import { tapPastKeyboard } from '../core/keyboard';
 import { by } from '../core/locators';
 import { BaseScreen } from './BaseScreen';
@@ -39,6 +39,17 @@ class LoginScreenObject extends BaseScreen {
       name: 'Sign in button',
       returnKey: 'done', // password field: returnKeyType="done" runs handleLogin
     });
+  }
+
+  /**
+   * Is the sign-in request still in flight? While it runs, the button's label
+   * reads "Sign in, busy" and it shows a spinner (sign-in-button-spinner).
+   */
+  async isSubmitBusy(): Promise<boolean> {
+    const [button] = await $$(by.testId(this.ids.submit)).getElements();
+    if (!button?.elementId) return false;
+    const label = await getLabel(button).catch(() => '');
+    return /\bbusy\b/i.test(label);
   }
 
   async signIn(email: string, password: string): Promise<void> {
