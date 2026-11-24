@@ -174,6 +174,10 @@ export const env = {
     // A failing test is re-run up to this many times (after an app restart)
     // before it is reported as failed.
     retries: int('TEST_RETRIES', 2),
+    // Android: how long Home keeps pulling to refresh, after its first wait,
+    // when the content API sends a home shell the app rejects (HomeScreen).
+    // Bounded so one attempt stays well inside TEST_TIMEOUT.
+    contentRecoveryTimeout: int('CONTENT_RECOVERY_TIMEOUT', 180_000),
     specFileRetries: int('SPEC_FILE_RETRIES', 0),
     // Run a multi-spec run in one Appium session instead of one per spec file
     // (see specGroup in wdio.shared.conf.ts).

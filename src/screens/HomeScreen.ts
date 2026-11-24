@@ -9,6 +9,7 @@
 import { $$, driver } from '@wdio/globals';
 import { env } from '../../config/env';
 import { screenSize } from '../core/elements';
+import { NotRetryableError } from '../core/errors';
 import { scroll, swipe } from '../core/gestures';
 import { createLogger } from '../core/logger';
 import { by, type Selector } from '../core/locators';
@@ -121,33 +122,48 @@ class HomeScreenObject extends BaseScreen {
    * device log), and a fresh install has no saved copy to fall back on, so Home
    * keeps its loading skeleton ("Loading home") until something fetches again:
    * Home only refetches on focus after a sign-in/out, or on a pull-to-refresh.
-   * Seen on CI (2026-11-24, both attempts) and locally, where 3 of 4 refetches
-   * in 30 s were rejected. On CI a page source takes 11–33 s, so the first
-   * window is the run's wait budget, not a fixed 60 s.
+   * Seen locally (3 of 4 refetches in 30 s rejected) and on CI: on 2026-11-24
+   * every one of 18 fetches between 10:51 and 11:11 UTC was rejected, and the
+   * first good shell came ~11:12.
    *
-   * Still the skeleton → pull to refresh (each pull logged, so the report shows
-   * the backend fault) and wait again, at most PULLS times. Still nothing →
-   * fail naming the cause. The defect itself is the app's / API's to fix.
+   * Still the skeleton after the first wait → pull to refresh every
+   * PULL_WAIT_MS (a content fetch takes 1–25 s on CI), for up to
+   * CONTENT_RECOVERY_TIMEOUT. Each pull is logged at info level, so the Allure
+   * report shows it. Still nothing → NotRetryableError naming the cause: a
+   * Mocha retry would only restart the app and sign in again (3–4 min on CI)
+   * to wait longer, which this loop already does more cheaply. The defect
+   * itself is the API's / app's to fix.
    */
   private async waitForContentAndroid(timeout: number): Promise<void> {
-    const PULLS = 3;
-    let state = await this.homeContentWithin(Math.max(timeout, 2 * env.run.waitTimeout));
-    for (let pull = 1; state === 'skeleton' && pull <= PULLS; pull += 1) {
-      log.warn(
-        `Home is still on its loading skeleton: the app rejected the content the API sent ` +
-          `(device log: "home content shell rejected"). Pull to refresh ${pull}/${PULLS}, as a user would.`,
+    const PULL_WAIT_MS = Math.min(env.run.waitTimeout, 30_000);
+    const budget = env.run.contentRecoveryTimeout;
+    let state = await this.homeContentWithin(timeout);
+    const started = Date.now();
+    let pulls = 0;
+    while (state === 'skeleton' && Date.now() - started < budget) {
+      pulls += 1;
+      log.info(
+        'Home is still on its loading skeleton: the app rejected the content the API sent ' +
+          `(device log: "home content shell rejected"). Pull to refresh #${pulls}, as a user ` +
+          `would (recovering for up to ${Math.round(budget / 1000)}s).`,
       );
       await this.pullToRefresh();
-      state = await this.homeContentWithin(env.run.waitTimeout);
+      state = await this.homeContentWithin(PULL_WAIT_MS);
     }
-    if (state === 'loaded') return;
-    throw new Error(
-      state === 'skeleton'
-        ? `Home content never loaded, even after ${PULLS} pulls to refresh: the screen still shows ` +
-            'the loading skeleton ("Loading home"). The content API keeps returning an invalid home ' +
-            'shell (see "home content shell rejected" in logs/device/logcat.txt).'
-        : 'Expected the Home screen with its top banner (CMS content loaded)',
-    );
+    if (state === 'loaded') {
+      if (pulls > 0) log.info(`Home content loaded after ${pulls} pull(s) to refresh`);
+      return;
+    }
+    if (state === 'skeleton') {
+      throw new NotRetryableError(
+        `Home content never loaded: the screen still shows the loading skeleton ("Loading home") ` +
+          `after ${pulls} pulls to refresh over ${Math.round((Date.now() - started) / 1000)}s. ` +
+          'The content API (GET /api/secure/contents?group_content_key=content_home) kept ' +
+          'returning a home shell with an empty mobile-pages section, which the app rejects ' +
+          '(see "home content shell rejected" in logs/device/logcat.txt). Backend fault: not retried.',
+      );
+    }
+    throw new Error('Expected the Home screen with its top banner (CMS content loaded)');
   }
 
   /** One page source per check: 'loaded' (root + top banner), 'skeleton' (Loading home), or 'other'. */

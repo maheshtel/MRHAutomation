@@ -6,6 +6,7 @@ import { appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { driver } from '@wdio/globals';
 import { App } from '../src/core/app';
+import { isNotRetryable } from '../src/core/errors';
 import { checkBackendHealth, resetAfterFailure } from '../src/core/session';
 import { echoWorkerErrors, uploadFailureNow, uploadLiveArtifacts } from '../src/core/liveDiagnostics';
 import { createLogger } from '../src/core/logger';
@@ -141,9 +142,16 @@ export const sharedConfig: Omit<WebdriverIO.Config, 'capabilities'> = {
     if (env.run.recordVideo) await driver.startRecordingScreen().catch(() => undefined);
   },
 
-  afterTest: async (test, _context, { passed, error, duration }) => {
+  afterTest: async (test, context, { passed, error, duration }) => {
     const attempt = attemptOf(test);
     const title = `${test.parent} — ${test.title}${attempt > 0 ? ` (retry ${attempt})` : ''}`;
+    if (!passed && isNotRetryable(error)) {
+      // WebdriverIO runs this hook inside the Mocha test function, so Mocha
+      // decides on a retry only after it returns: retries(0) makes this
+      // attempt the last. Only the Android Home path throws it (HomeScreen).
+      (context as { retries?: (n: number) => unknown } | undefined)?.retries?.(0);
+      log.warn(`No retry for "${title}": re-running the test cannot fix this failure`);
+    }
     if (!passed) {
       // Printed now (not only in the end-of-run summary) so a CI log shows the
       // reason even if the job is cut short.
