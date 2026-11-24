@@ -7,10 +7,13 @@
  * sweeping down the page once, so the checks hold however editors reorder it.
  */
 import { $$, driver } from '@wdio/globals';
-import { scroll } from '../core/gestures';
+import { env } from '../../config/env';
+import { screenSize } from '../core/elements';
+import { scroll, swipe } from '../core/gestures';
 import { createLogger } from '../core/logger';
 import { by, type Selector } from '../core/locators';
 import { nodesWithTestId } from '../core/pageSource';
+import { isAndroid } from '../core/platform';
 import { BaseScreen } from './BaseScreen';
 
 const log = createLogger('home');
@@ -94,6 +97,7 @@ class HomeScreenObject extends BaseScreen {
    * 3–10 s there and well under a second on Android.
    */
   async waitForContent(timeout = 60_000): Promise<void> {
+    if (isAndroid()) return this.waitForContentAndroid(timeout);
     const topBanner = new RegExp(`^${SECTION_DEFS.topBanner.pattern}$`);
     await driver.waitUntil(
       async () => {
@@ -106,6 +110,65 @@ class HomeScreenObject extends BaseScreen {
         timeoutMsg: 'Expected the Home screen with its top banner (CMS content loaded)',
       },
     );
+  }
+
+  /**
+   * Android: the same check, plus the recovery a user would make when the
+   * content never arrives.
+   *
+   * The content API intermittently returns a home "shell" whose mobile-pages
+   * section is empty. The app rejects it ("home content shell rejected" in the
+   * device log), and a fresh install has no saved copy to fall back on, so Home
+   * keeps its loading skeleton ("Loading home") until something fetches again:
+   * Home only refetches on focus after a sign-in/out, or on a pull-to-refresh.
+   * Seen on CI (2026-11-24, both attempts) and locally, where 3 of 4 refetches
+   * in 30 s were rejected. On CI a page source takes 11–33 s, so the first
+   * window is the run's wait budget, not a fixed 60 s.
+   *
+   * Still the skeleton → pull to refresh (each pull logged, so the report shows
+   * the backend fault) and wait again, at most PULLS times. Still nothing →
+   * fail naming the cause. The defect itself is the app's / API's to fix.
+   */
+  private async waitForContentAndroid(timeout: number): Promise<void> {
+    const PULLS = 3;
+    let state = await this.homeContentWithin(Math.max(timeout, 2 * env.run.waitTimeout));
+    for (let pull = 1; state === 'skeleton' && pull <= PULLS; pull += 1) {
+      log.warn(
+        `Home is still on its loading skeleton: the app rejected the content the API sent ` +
+          `(device log: "home content shell rejected"). Pull to refresh ${pull}/${PULLS}, as a user would.`,
+      );
+      await this.pullToRefresh();
+      state = await this.homeContentWithin(env.run.waitTimeout);
+    }
+    if (state === 'loaded') return;
+    throw new Error(
+      state === 'skeleton'
+        ? `Home content never loaded, even after ${PULLS} pulls to refresh: the screen still shows ` +
+            'the loading skeleton ("Loading home"). The content API keeps returning an invalid home ' +
+            'shell (see "home content shell rejected" in logs/device/logcat.txt).'
+        : 'Expected the Home screen with its top banner (CMS content loaded)',
+    );
+  }
+
+  /** One page source per check: 'loaded' (root + top banner), 'skeleton' (Loading home), or 'other'. */
+  private async homeContentWithin(timeout: number): Promise<'loaded' | 'skeleton' | 'other'> {
+    const topBanner = new RegExp(`^${SECTION_DEFS.topBanner.pattern}$`);
+    const deadline = Date.now() + timeout;
+    let state: 'loaded' | 'skeleton' | 'other' = 'other';
+    do {
+      const source = await driver.getPageSource();
+      const ids = [...source.matchAll(/resource-id="([^"]*)"/g)].map((match) => match[1]);
+      if (ids.includes('home-screen') && ids.some((id) => topBanner.test(id))) return 'loaded';
+      state = source.includes('content-desc="Loading home"') ? 'skeleton' : 'other';
+      await driver.pause(500);
+    } while (Date.now() < deadline);
+    return state;
+  }
+
+  /** Pull Home down from near its top: the app's RefreshControl refetches the content. */
+  private async pullToRefresh(): Promise<void> {
+    const { width, height } = await screenSize();
+    await swipe({ x: width / 2, y: height * 0.3 }, { x: width / 2, y: height * 0.75 }, 700);
   }
 
   /**
