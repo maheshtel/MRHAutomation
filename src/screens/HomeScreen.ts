@@ -76,8 +76,6 @@ const ANY_SECTION = new RegExp(
   `^(?:${SECTION_KEYS.map((key) => SECTION_DEFS[key].pattern).join('|')})$`,
 );
 const PRODUCT_CARD = /^home-product-card-[0-9]+$/;
-/** The screen root or a top banner: what `waitForContent` looks for. */
-const HOME_CONTENT_PROBE = new RegExp(`^(?:home-screen|${SECTION_DEFS.topBanner.pattern})$`);
 
 
 class HomeScreenObject extends BaseScreen {
@@ -95,27 +93,21 @@ class HomeScreenObject extends BaseScreen {
    * Polled with one page source per check, not element queries: both nodes
    * are non-accessible on iOS (find + displayed + accessible + rect each), and
    * on a CI Mac those queries against Home took ~75 s; a page source takes
-   * 3–10 s there and well under a second on Android.
+   * 0.5–10 s there and well under a second on Android.
    */
   async waitForContent(timeout = 60_000): Promise<void> {
-    if (isAndroid()) return this.waitForContentAndroid(timeout);
-    const topBanner = new RegExp(`^${SECTION_DEFS.topBanner.pattern}$`);
-    await driver.waitUntil(
-      async () => {
-        const ids = (await nodesWithTestId(HOME_CONTENT_PROBE)).map((node) => node.testId);
-        return ids.includes('home-screen') && ids.some((id) => topBanner.test(id));
-      },
-      {
-        timeout,
-        interval: 500,
-        timeoutMsg: 'Expected the Home screen with its top banner (CMS content loaded)',
-      },
-    );
+    return this.waitForContentWithRecovery(timeout);
   }
 
   /**
-   * Android: the same check, plus the recovery a user would make when the
-   * content never arrives.
+   * The check above, plus the recovery a user would make when the content
+   * never arrives. Both platforms (iOS since 2026-11-27).
+   *
+   * iOS, 2026-11-27 CI: login failed on all 4 attempts (05:15–05:38 UTC) with
+   * Home on the same "Loading home" skeleton. The simulator was fast (page
+   * source 0.5–3 s, ~60 checks per attempt), so the content never arrived.
+   * The iOS release build writes no JS log to the simulator log, so the
+   * rejection itself is not visible there.
    *
    * The content API intermittently returns a home "shell" whose mobile-pages
    * section is empty. The app rejects it ("home content shell rejected" in the
@@ -134,7 +126,7 @@ class HomeScreenObject extends BaseScreen {
    * to wait longer, which this loop already does more cheaply. The defect
    * itself is the API's / app's to fix.
    */
-  private async waitForContentAndroid(timeout: number): Promise<void> {
+  private async waitForContentWithRecovery(timeout: number): Promise<void> {
     const PULL_WAIT_MS = Math.min(env.run.waitTimeout, 30_000);
     const budget = env.run.contentRecoveryTimeout;
     let state = await this.homeContentWithin(timeout);
@@ -160,22 +152,28 @@ class HomeScreenObject extends BaseScreen {
           `after ${pulls} pulls to refresh over ${Math.round((Date.now() - started) / 1000)}s. ` +
           'The content API (GET /api/secure/contents?group_content_key=content_home) kept ' +
           'returning a home shell with an empty mobile-pages section, which the app rejects ' +
-          '(see "home content shell rejected" in logs/device/logcat.txt). Backend fault: not retried.',
+          '(Android: see "home content shell rejected" in logs/device/logcat.txt). Backend fault: not retried.',
       );
     }
     throw new Error('Expected the Home screen with its top banner (CMS content loaded)');
   }
 
-  /** One page source per check: 'loaded' (root + top banner), 'skeleton' (Loading home), or 'other'. */
+  /**
+   * One page source per check: 'loaded' (root + top banner), 'skeleton'
+   * (Loading home), or 'other'. The testID is `resource-id` on Android and
+   * `name` on iOS; the skeleton's label is `content-desc` / `name`.
+   */
   private async homeContentWithin(timeout: number): Promise<'loaded' | 'skeleton' | 'other'> {
     const topBanner = new RegExp(`^${SECTION_DEFS.topBanner.pattern}$`);
+    const idPattern = isAndroid() ? /resource-id="([^"]*)"/g : /\bname="([^"]*)"/g;
+    const skeleton = isAndroid() ? 'content-desc="Loading home"' : 'name="Loading home"';
     const deadline = Date.now() + timeout;
     let state: 'loaded' | 'skeleton' | 'other' = 'other';
     do {
       const source = await driver.getPageSource();
-      const ids = [...source.matchAll(/resource-id="([^"]*)"/g)].map((match) => match[1]);
+      const ids = [...source.matchAll(idPattern)].map((match) => match[1]);
       if (ids.includes('home-screen') && ids.some((id) => topBanner.test(id))) return 'loaded';
-      state = source.includes('content-desc="Loading home"') ? 'skeleton' : 'other';
+      state = source.includes(skeleton) ? 'skeleton' : 'other';
       await driver.pause(500);
     } while (Date.now() < deadline);
     return state;
